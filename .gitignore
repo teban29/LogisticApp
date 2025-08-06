@@ -1,0 +1,42 @@
+# === Python ===
+__pycache__/
+*.py[cod]
+*.sqlite3
+*.log
+*.pot
+*.pyc
+*.pyo
+*.pyd
+*.swp
+env/
+venv/
+instance/
+.venv/
+db.sqlite3
+
+# Django static/media
+staticfiles/
+media/
+*.bak
+
+# VSCode settings
+.vscode/
+
+# === Node / React (Vite) ===
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
+frontend/.env
+
+# === General ===
+.env
+*.env
+.DS_Store
+*.pem
+*.key
+*.crt
+.idea/
+*.iml
+
+# === Git ===
+*.orig
