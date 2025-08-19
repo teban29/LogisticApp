@@ -1,9 +1,11 @@
 import { createBrowserRouter } from "react-router-dom";
 import ProtectedRoute from "./components/ProtectedRoute";
+import RoleProtected from "./components/RoleProtected";
 import AppLayout from "./layouts/AppLayout";
 
 import Login from "./pages/Login";
 import Users from "./pages/Users";
+import Providers from "./pages/Providers";
 
 // Placeholders (puedes crearlos vacíos por ahora)
 const Dashboard = () => <div className="text-lg">Bienvenido 👋</div>;
@@ -17,15 +19,20 @@ export const router = createBrowserRouter([
   { path: "/login", element: <Login /> },
 
   {
-    element: <ProtectedRoute />, // verifica auth
+    element: <ProtectedRoute />,
     children: [
       {
-        element: <AppLayout />, // agrega sidebar + shell
+        element: <AppLayout />,
         children: [
           { path: "/", element: <Dashboard /> },
-          { path: "/usuarios", element: <Users /> },
+          {
+            element: <RoleProtected allowedRoles={['admin']}/>,
+            children: [
+              {path: "/usuarios", element: <Users />},
+            ],
+          },
           { path: "/clientes", element: <Clientes /> },
-          { path: "/proveedores", element: <Proveedores /> },
+          { path: "/proveedores", element: <Providers /> },
           { path: "/inventario", element: <Inventario /> },
           { path: "/envios", element: <Envios /> },
           { path: "/configuracion", element: <Configuracion /> },
