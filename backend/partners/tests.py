@@ -41,7 +41,7 @@ class PartnersTests(APITestCase):
         p2 = Proveedor.objects.create(nombre='P2', nit='N2')
         url = reverse('clientes-list')
         res = self.client.post(url, {
-            'nombre': 'Cliente A', 'nit': 'C1', 'proveedores': [p1.id, p2.id]
+            'nombre': 'Cliente A', 'nit': 'C1', 'proveedores_ids': [p1.id, p2.id]
         }, format='json')
         self.assertEqual(res.status_code, status.HTTP_201_CREATED, msg=res.data)
         c = Cliente.objects.get(nit='C1')

@@ -6,6 +6,7 @@ import AppLayout from "./layouts/AppLayout";
 import Login from "./pages/Login";
 import Users from "./pages/Users";
 import Providers from "./pages/Providers";
+import Clients from "./pages/Clients";
 
 // Placeholders (puedes crearlos vacíos por ahora)
 const Dashboard = () => <div className="text-lg">Bienvenido 👋</div>;
@@ -31,7 +32,7 @@ export const router = createBrowserRouter([
               {path: "/usuarios", element: <Users />},
             ],
           },
-          { path: "/clientes", element: <Clientes /> },
+          { path: "/clientes", element: <Clients /> },
           { path: "/proveedores", element: <Providers /> },
           { path: "/inventario", element: <Inventario /> },
           { path: "/envios", element: <Envios /> },

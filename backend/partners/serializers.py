@@ -7,13 +7,22 @@ class ProveedorSerializer(serializers.ModelSerializer):
         fields = ['id','nombre','nit','email','telefono','direccion','ciudad','is_active','created_at']
 
 class ClienteSerializer(serializers.ModelSerializer):
-    proveedores = serializers.PrimaryKeyRelatedField(
-        many=True, queryset=Proveedor.objects.all(), required=False
+    proveedores = ProveedorSerializer(many=True, read_only=True)
+    proveedores_ids = serializers.PrimaryKeyRelatedField(
+        many=True,
+        queryset=Proveedor.objects.all(),
+        write_only=True,
+        source='proveedores',
+        required=False
     )
 
     class Meta:
         model = Cliente
-        fields = ['id','nombre','nit','email','telefono','direccion','ciudad','is_active','proveedores','created_at']
+        fields = [
+            'id', 'nombre', 'nit', 'email', 'telefono', 'direccion', 'ciudad',
+            'is_active', 'proveedores', 'proveedores_ids', 'created_at',
+        ]
+
 
     def create(self, validated_data):
         proveedores = validated_data.pop('proveedores', [])
