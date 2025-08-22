@@ -26,8 +26,6 @@ export default function Sidebar({ open, setOpen }) {
     navigate('/login');
   };
 
-  // items: agrega allowedRoles: [] si solo algunos roles deben verlo.
-  // Si allowedRoles está vacío o no existe, cualquier usuario autenticado lo verá.
   const items = [
     { to: '/', label: 'Dashboard', icon: <RiDashboardLine /> }, // visible para todos
     {
@@ -49,8 +47,8 @@ export default function Sidebar({ open, setOpen }) {
       allowedRoles: ['admin', 'operador'],
     },
     {
-      to: '/inventario',
-      label: 'Inventario',
+      to: '/cargas',
+      label: 'Cargas',
       icon: <RiArchive2Line />,
       allowedRoles: ['admin', 'operador'],
     },
