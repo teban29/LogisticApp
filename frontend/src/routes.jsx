@@ -8,6 +8,7 @@ import Users from "./pages/Users";
 import Providers from "./pages/Providers";
 import Clients from "./pages/Clients";
 import Cargas from "./pages/Cargas";
+import CargaDetailPage from "./pages/CargaDetailPage";
 
 // Placeholders (puedes crearlos vacíos por ahora)
 const Dashboard = () => <div className="text-lg">Bienvenido 👋</div>;
@@ -35,6 +36,7 @@ export const router = createBrowserRouter([
           { path: "/clientes", element: <Clients /> },
           { path: "/proveedores", element: <Providers /> },
           { path: "/cargas", element: <Cargas /> },
+          { path: "/cargas/:id", element: <CargaDetailPage /> },
           { path: "/envios", element: <Envios /> },
           { path: "/configuracion", element: <Configuracion /> },
         ],

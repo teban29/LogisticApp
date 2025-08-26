@@ -49,7 +49,8 @@ export async function createCarga(payload) {
 export async function updateCarga(id, payload) {
   const form = new FormData();
   if (payload.remision) form.append("remision", payload.remision);
-  if (payload.observaciones) form.append("observaciones", payload.observaciones);
+  if (payload.observaciones)
+    form.append("observaciones", payload.observaciones);
   if (typeof payload.auto_generar_unidades !== "undefined")
     form.append(
       "auto_generar_unidades",
@@ -70,4 +71,30 @@ export async function generarUnidades(cargaId) {
 export async function listUnidades(params = {}) {
   const res = await api.get("/api/cargas/unidades/", { params });
   return res.data;
+}
+
+export async function descargarEtiquetasPorItem(cargaId, itemId) {
+  const res = await api.get(`/api/cargas/${cargaId}/etiquetas/`, {
+    params: { item_id: itemId },
+    responseType: "blob",
+  });
+  return res.data;
+}
+
+export async function descargarEtiquetasDeCarga(cargaId) {
+  const res = await api.get(`/api/cargas/${cargaId}/etiquetas/`, {
+    responseType: "blob",
+  });
+  return res.data;
+}
+
+export function descargarBlobComoPDF(blob, filename) {
+  const url = window.URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename.endsWith(".pdf") ? filename : `${filename}.pdf`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  window.URL.revokeObjectURL(url);
 }

@@ -10,12 +10,13 @@ import {
   RiSettings3Line,
   RiLogoutCircleRLine,
   RiCloseLine,
+  RiArrowLeftSLine,
 } from 'react-icons/ri';
 
 const navItemBase =
-  'flex items-center gap-3 px-3 py-2 rounded-xl text-sm transition-colors';
-const navItemActive = 'bg-gray-900 text-white';
-const navItemInactive = 'text-gray-700 hover:bg-gray-100';
+  'flex items-center gap-3 px-4 py-3 rounded-lg text-sm transition-all duration-200';
+const navItemActive = 'bg-blue-50 text-blue-700 font-medium border-r-4 border-blue-600';
+const navItemInactive = 'text-gray-600 hover:bg-gray-50 hover:text-gray-900';
 
 export default function Sidebar({ open, setOpen }) {
   const { user, logout } = useAuth();
@@ -28,12 +29,6 @@ export default function Sidebar({ open, setOpen }) {
 
   const items = [
     { to: '/', label: 'Dashboard', icon: <RiDashboardLine /> }, // visible para todos
-    {
-      to: '/usuarios',
-      label: 'Usuarios',
-      icon: <RiUser3Line />,
-      allowedRoles: ['admin'], // solo admins
-    },
     {
       to: '/clientes',
       label: 'Clientes',
@@ -59,6 +54,12 @@ export default function Sidebar({ open, setOpen }) {
       allowedRoles: ['admin', 'operador', 'cliente'],
     },
     {
+      to: '/usuarios',
+      label: 'Usuarios',
+      icon: <RiUser3Line />,
+      allowedRoles: ['admin'], // solo admins
+    },
+    {
       to: '/configuracion',
       label: 'Configuración',
       icon: <RiSettings3Line />,
@@ -73,61 +74,82 @@ export default function Sidebar({ open, setOpen }) {
   };
 
   return (
-    <aside
-      className={`
-        fixed z-30 inset-y-0 left-0 w-72 bg-white border-r p-4 flex flex-col
-        transform transition-transform duration-200
-        ${open ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0
-      `}
-    >
-      <div className="flex items-center justify-between mb-6">
-        <div className="flex items-center gap-2">
-          <div className="w-9 h-9 rounded-xl border flex items-center justify-center">🚚</div>
-          <div>
-            <div className="font-semibold">LogísticApp</div>
-            {user && (
-              <div className="text-xs text-gray-500">
-                {user.nombre} {user.apellido} • {user.rol}
-              </div>
-            )}
+    <>
+      {/* Overlay para móviles */}
+      {open && (
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-50 z-20 lg:hidden"
+          onClick={() => setOpen(false)}
+        />
+      )}
+      
+      <aside
+        className={`
+          fixed z-30 inset-y-0 left-0 w-72 bg-white border-r border-gray-200 p-5 flex flex-col
+          transform transition-transform duration-300 ease-in-out
+          ${open ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0
+          shadow-xl lg:shadow-none
+        `}
+      >
+        {/* Encabezado */}
+        <div className="flex items-center justify-between mb-8">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-600 to-blue-800 flex items-center justify-center text-white font-bold">
+              🚚
+            </div>
+            <div>
+              <div className="font-bold text-gray-900">LogísticApp</div>
+              {user && (
+                <div className="text-xs text-gray-500 mt-0.5">
+                  {user.nombre} {user.apellido} • <span className="capitalize">{user.rol}</span>
+                </div>
+              )}
+            </div>
           </div>
+
+          <button
+            onClick={() => setOpen(false)}
+            className="lg:hidden p-2 rounded-lg hover:bg-gray-100 transition-colors"
+            aria-label="Cerrar menú"
+          >
+            <RiCloseLine className="text-lg" />
+          </button>
         </div>
 
-        <button
-          onClick={() => setOpen(false)}
-          className="lg:hidden p-2 border rounded-xl"
-          aria-label="Cerrar menú"
-        >
-          <RiCloseLine />
-        </button>
-      </div>
+        {/* Navegación */}
+        <nav className="space-y-1.5 flex-1">
+          {items.filter(canShow).map((item) => (
+            <NavLink
+              key={item.to}
+              to={item.to}
+              end={item.to === '/'}
+              onClick={() => setOpen(false)}
+              className={({ isActive }) =>
+                `${navItemBase} ${isActive ? navItemActive : navItemInactive}`
+              }
+            >
+              <span className="text-lg flex-shrink-0">{item.icon}</span>
+              <span className="flex-grow">{item.label}</span>
+              {item.to === '/envios' && (
+                <span className="bg-blue-100 text-blue-800 text-xs px-2 py-0.5 rounded-full">
+                  3
+                </span>
+              )}
+            </NavLink>
+          ))}
+        </nav>
 
-      <nav className="space-y-1 flex-1">
-        {items.filter(canShow).map((item) => (
-          <NavLink
-            key={item.to}
-            to={item.to}
-            end={item.to === '/'}
-            onClick={() => setOpen(false)}
-            className={({ isActive }) =>
-              `${navItemBase} ${isActive ? navItemActive : navItemInactive}`
-            }
+        {/* Pie de página */}
+        <div className="pt-4 mt-auto border-t border-gray-200">
+          <button
+            onClick={handleLogout}
+            className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm text-red-600 hover:bg-red-50 transition-colors group"
           >
-            <span className="text-lg">{item.icon}</span>
-            <span>{item.label}</span>
-          </NavLink>
-        ))}
-      </nav>
-
-      <div className="pt-3 border-t">
-        <button
-          onClick={handleLogout}
-          className="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-sm text-red-600 hover:bg-red-50"
-        >
-          <RiLogoutCircleRLine className="text-lg" />
-          Cerrar sesión
-        </button>
-      </div>
-    </aside>
+            <RiLogoutCircleRLine className="text-lg transition-transform group-hover:scale-110" />
+            <span>Cerrar sesión</span>
+          </button>
+        </div>
+      </aside>
+    </>
   );
 }

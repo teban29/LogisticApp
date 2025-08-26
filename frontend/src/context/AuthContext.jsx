@@ -42,7 +42,6 @@ export function AuthProvider({ children }) {
     const { data } = await api.post('/api/auth/login/', { username, password });
     localStorage.setItem('access', data.access);
     localStorage.setItem('refresh', data.refresh);
-    // obtener info del usuario
     const me = await fetchMe();
     setUser(me);
   };

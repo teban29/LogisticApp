@@ -36,8 +36,6 @@ class CargaItemReadSerializer(serializers.ModelSerializer):
 
 class CargaSerializer(serializers.ModelSerializer):
     items = serializers.SerializerMethodField(read_only=True)
-
-    # <-- Cambiado: usamos JSONField para aceptar tanto JSON real como cadena JSON
     items_data = serializers.JSONField(write_only=True, required=False)
     auto_generar_unidades = serializers.BooleanField(write_only=True, required=False, default=True)
 
@@ -122,3 +120,57 @@ class CargaSerializer(serializers.ModelSerializer):
             generar_unidades_para_carga(carga)
 
         return carga
+    
+
+    @transaction.atomic
+    def update(self, instance, validated_data):
+        """
+        Actualiza la carga. Si llega 'items_data' -> reemplaza items (borrar y crear).
+        Si llega factura (archivo) lo actualiza normalmente.
+        """
+        items_raw = validated_data.pop('items_data', None)
+        # actualizar campos simples
+        for attr, val in validated_data.items():
+            setattr(instance, attr, val)
+        instance.save()
+
+        # Si nos dieron items_data, reemplazamos los items
+        if items_raw is not None:
+            # validar items
+            item_serializer = CargaItemWriteSerializer(data=items_raw, many=True)
+            item_serializer.is_valid(raise_exception=True)
+            items_valid = item_serializer.validated_data
+
+            # eliminar items existentes (y sus unidades por cascade)
+            instance.items.all().delete()
+
+            items_to_create = []
+            for it in items_valid:
+                if it.get('producto_id'):
+                    producto = Producto.objects.get(pk=it['producto_id'])
+                else:
+                    nombre = it['producto_nombre'].strip()
+                    sku = (it.get('producto_sku') or '').strip() or None
+                    if sku:
+                        producto, _ = Producto.objects.get_or_create(
+                            sku=sku,
+                            defaults={'nombre': nombre, 'unidad': 'unidad'}
+                        )
+                    else:
+                        base = (nombre.upper().replace(' ', '-')[:20]) or 'SKU'
+                        candidate = base
+                        i = 1
+                        while Producto.objects.filter(sku=candidate).exists():
+                            i += 1
+                            candidate = f"{base}-{i}"[:60]
+                        producto = Producto.objects.create(sku=candidate, nombre=nombre, unidad='unidad')
+
+                items_to_create.append(CargaItem(
+                    carga=instance,
+                    producto=producto,
+                    cantidad=it['cantidad'],
+                ))
+
+            if items_to_create:
+                CargaItem.objects.bulk_create(items_to_create)
+        return instance

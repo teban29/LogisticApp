@@ -39,7 +39,7 @@ def generate_barcode(cliente_id: int, carga_id: int, unidad_seq: int) -> str:
     """
     
     rnd = _base32_encode(_entropy(), 13)
-    prefix = f'CL{cliente_id} - CG{carga_id}'
+    prefix = f'CL{cliente_id}CG{carga_id}'
     digits = f'{cliente_id}{carga_id}{unidad_seq}{abs(hash(rnd))}'
     dv = _luhn_mod10(digits)
-    return f'{prefix}-{rnd}={dv}'
+    return f'{prefix}{rnd}{dv}'
