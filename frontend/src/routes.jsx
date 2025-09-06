@@ -9,12 +9,12 @@ import Providers from "./pages/Providers";
 import Clients from "./pages/Clients";
 import Cargas from "./pages/Cargas";
 import CargaDetailPage from "./pages/CargaDetailPage";
+import Envios from "./pages/Envios";
 
 // Placeholders (puedes crearlos vacíos por ahora)
 const Dashboard = () => <div className="text-lg">Bienvenido 👋</div>;
 const Clientes = () => <div>Clientes</div>;
 const Proveedores = () => <div>Proveedores</div>;
-const Envios = () => <div>Envíos</div>;
 const Configuracion = () => <div>Configuración</div>;
 
 export const router = createBrowserRouter([
@@ -28,10 +28,8 @@ export const router = createBrowserRouter([
         children: [
           { path: "/", element: <Dashboard /> },
           {
-            element: <RoleProtected allowedRoles={['admin']}/>,
-            children: [
-              {path: "/usuarios", element: <Users />},
-            ],
+            element: <RoleProtected allowedRoles={["admin"]} />,
+            children: [{ path: "/usuarios", element: <Users /> }],
           },
           { path: "/clientes", element: <Clients /> },
           { path: "/proveedores", element: <Providers /> },

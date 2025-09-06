@@ -1,0 +1,171 @@
+import { useState, useCallback } from "react";
+import {
+  listEnvios,
+  createEnvio,
+  updateEnvio as updateEnvioAPI,
+  deleteEnvio,
+  agregarItemEnvio,
+  removerItemEnvio,
+  getCargasPorCliente,
+  cambiarEstadoEnvio,
+} from "../api/envios";
+
+export const useEnvios = () => {
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const [envios, setEnvios] = useState([]);
+  const [count, setCount] = useState(0);
+
+  const handleError = (err) => {
+    console.error("Error completo:", err.response?.data);
+
+    const message =
+      err.response?.data?.detail ||
+      err.response?.data?.error ||
+      (typeof err.response?.data === "object"
+        ? JSON.stringify(err.response.data)
+        : "Error en la operación");
+
+    setError(message);
+    throw new Error(message);
+  };
+
+  const fetchEnvios = useCallback(async (params = {}) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const data = await listEnvios(params);
+      const enviosData = data.results || data;
+      setEnvios(enviosData);
+      setCount(data.count || enviosData.length);
+      return data;
+    } catch (err) {
+      return handleError(err);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  const crearEnvio = useCallback(async (payload) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const data = await createEnvio(payload);
+      setEnvios((prev) => [...prev, data]);
+      setCount((prev) => prev + 1);
+      return data;
+    } catch (err) {
+      return handleError(err);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  const actualizarEnvio = useCallback(async (id, payload) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const data = await updateEnvioAPI(id, payload);
+      setEnvios((prev) =>
+        prev.map((envio) => (envio.id === id ? data : envio))
+      );
+      return data;
+    } catch (err) {
+      return handleError(err);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  const eliminarEnvio = useCallback(async (id) => {
+    setLoading(true);
+    setError(null);
+    try {
+      await deleteEnvio(id);
+      setEnvios((prev) => prev.filter((envio) => envio.id !== id));
+      setCount((prev) => prev - 1);
+      return { success: true };
+    } catch (err) {
+      return handleError(err);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  const agregarItem = useCallback(async (envioId, payload) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const data = await agregarItemEnvio(envioId, payload);
+      setEnvios((prev) =>
+        prev.map((envio) => (envio.id === envioId ? data : envio))
+      );
+      return data;
+    } catch (err) {
+      return handleError(err);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  const removerItem = useCallback(async (envioId, itemId) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const data = await removerItemEnvio(envioId, itemId);
+      setEnvios((prev) =>
+        prev.map((envio) => (envio.id === envioId ? data : envio))
+      );
+      return data;
+    } catch (err) {
+      return handleError(err);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  const obtenerCargasPorCliente = useCallback(async (clienteId) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const data = await getCargasPorCliente(clienteId);
+      return data;
+    } catch (err) {
+      return handleError(err);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  const cambiarEstado = useCallback(async (envioId, estado) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const data = await cambiarEstadoEnvio(envioId, estado);
+      setEnvios((prev) =>
+        prev.map((envio) => (envio.id === envioId ? data : envio))
+      );
+      return data;
+    } catch (err) {
+      return handleError(err);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  return {
+    loading,
+    error,
+    envios,
+    count,
+    fetchEnvios,
+    crearEnvio,
+    actualizarEnvio,
+    eliminarEnvio,
+    agregarItem,
+    removerItem,
+    obtenerCargasPorCliente,
+    cambiarEstado,
+    clearError: () => setError(null),
+  };
+};

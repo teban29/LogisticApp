@@ -35,9 +35,8 @@ def generate_barcode(cliente_id: int, carga_id: int, unidad_seq: int) -> str:
     """
     Genera un codigo de barras unico
     CL<cliente>-CG<carga>-<base32>-<DV>
-    Ej: CL5-CG12-01C9T...-7
+    Ej: CL5CG12-01C9T...7
     """
-    
     rnd = _base32_encode(_entropy(), 13)
     prefix = f'CL{cliente_id}CG{carga_id}'
     digits = f'{cliente_id}{carga_id}{unidad_seq}{abs(hash(rnd))}'

@@ -37,7 +37,7 @@ export default function Login() {
           <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-blue-600 to-blue-800 rounded-2xl shadow-md mb-4">
             <span className="text-2xl font-bold text-white">🚚</span>
           </div>
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">LogísticApp</h1>
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">LogisticApp</h1>
           <p className="text-gray-600">Ingrese a su cuenta para continuar</p>
         </div>
 

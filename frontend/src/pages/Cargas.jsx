@@ -508,7 +508,6 @@ export default function Cargas() {
               </button>
             </div>
 
-            {/* Factura */}
             <div className="border-t pt-4">
               <h3 className="font-medium text-gray-900 mb-3 flex items-center gap-2">
                 <RiFileTextLine />

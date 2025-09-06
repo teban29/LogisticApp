@@ -15,6 +15,9 @@ from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.platypus import Paragraph
 from reportlab.lib.enums import TA_CENTER
 
+from rest_framework.response import Response
+from rest_framework import status, decorators
+
 
 
 class ProductoViewSet(viewsets.ModelViewSet):
@@ -115,48 +118,37 @@ class CargaViewSet(viewsets.ModelViewSet):
             producto = u.carga_item.producto
             cliente = u.carga_item.carga.cliente
 
-            # ---------- CÓDIGO DE BARRAS 128 (85x44mm) ----------
-            codigo = u.codigo_barra  # ya único por unidad
-            bcode = code128.Code128(codigo, barHeight=target_bh)  # barWidth se ajusta por escala
-
-            # Medidas naturales del código con barHeight (ancho depende del contenido)
+            codigo = u.codigo_barra
+            bcode = code128.Code128(codigo, barHeight=target_bh)
             nat_w, nat_h = bcode.wrap(0, 0)
-            # Factor de escala para forzar EXACTAMENTE 85mm de ancho y 44mm de alto
-            # (manteniendo proporción)
+
             sx = float(target_bw) / float(nat_w) if nat_w else 1.0
             sy = float(target_bh) / float(nat_h) if nat_h else 1.0
-            # Si prefieres mantener la proporción exacta del módulo, usa el menor:
-            # s = min(sx, sy); sx = sy = s
-            # Aquí forzamos exactamente 85x44:
+
             s = None
 
-            # Posición centrada
             bx = (label_w - target_bw) / 2.0
-            # Un poco de aire superior y debajo del código
             by = label_h - margin - target_bh - (4*mm)
 
             c.saveState()
             c.translate(bx, by)
-            c.scale(sx, sy)   # <<< Escala para ancho/alto exactos
+            c.scale(sx, sy)
             bcode.drawOn(c, 0, 0)
             c.restoreState()
 
-            # ---------- TEXTO BAJO EL CÓDIGO ----------
-            # 4 líneas compactas (centradas). Usa <b> para negrita (Helvetica-Bold implícito).
             info_lines = [
                 Paragraph(f"<b>CLIENTE:</b> {cliente.nombre[:24]}", base),
                 Paragraph(f"<b>PRODUCTO:</b> {producto.nombre[:24]}", base),
                 Paragraph(f"<b>REM:</b> {u.carga_item.carga.remision}", base),
             ]
 
-            # Margen inferior
             y = 8*mm
             for p in info_lines:
                 p.wrapOn(c, inner_w, 12*mm)
                 p.drawOn(c, margin, y)
-                y += p.height + (1.0*mm)  # pequeño espaciado entre líneas
+                y += p.height + (1.0*mm)
 
-            c.showPage()  # 1 etiqueta por página
+            c.showPage() 
 
         c.save()
         buf.seek(0)
@@ -171,23 +163,48 @@ class CargaViewSet(viewsets.ModelViewSet):
 
 
 class UnidadViewSet(viewsets.ReadOnlyModelViewSet):
-    """
-    ViewSet de solo lectura para gestionar unidades del sistema.
-    Permite filtrar por código de barras.
-    Solo accesible por usuarios con rol de administrador.
-    """
-    queryset = Unidad.objects.select_related('carga_item__carga').all().order_by('id')
+    queryset = Unidad.objects.select_related('carga_item__carga__cliente', 'carga_item__producto').all().order_by('id')
     serializer_class = UnidadSerializer
     permission_classes = [IsAdminRole]
     parser_classes = [JSONParser]
-
-    def get_queryset(self):
-        """
-        Filtra el queryset por código de barras si se proporciona.
-        """
-        qs = super().get_queryset()
-        code = self.request.query_params.get('codigo_barra')
-        if code:
-            qs = qs.filter(codigo_barra=code)
-        return qs
     
+    def get_queryset(self):
+        """Filtra el queryset por código de barras si se proporciona."""
+        queryset = super().get_queryset()
+        codigo_barra = self.request.query_params.get('codigo_barra')
+        
+        if codigo_barra:
+            queryset = queryset.filter(codigo_barra=codigo_barra)
+        
+        return queryset
+    
+    @decorators.action(detail=False, methods=['get'], url_path='por-codigo')
+    def por_codigo(self, request):
+        """Obtiene una unidad específica por su código de barras"""
+        codigo_barra = request.query_params.get('codigo_barra')
+        
+        if not codigo_barra:
+            return Response(
+                {'error': 'Se requiere parámetro codigo_barra'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        try:
+            unidad = Unidad.objects.select_related(
+                'carga_item__carga__cliente', 
+                'carga_item__producto'
+            ).get(codigo_barra=codigo_barra)
+            
+            serializer = self.get_serializer(unidad)
+            return Response(serializer.data)
+            
+        except Unidad.DoesNotExist:
+            return Response(
+                {'error': 'Unidad no encontrada'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        except Unidad.MultipleObjectsReturned:
+            # En caso de que haya duplicados (no debería pasar)
+            unidades = Unidad.objects.filter(codigo_barra=codigo_barra)
+            serializer = self.get_serializer(unidades.first())
+            return Response(serializer.data)
