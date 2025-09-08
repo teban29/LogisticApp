@@ -192,7 +192,7 @@ class UnidadViewSet(viewsets.ReadOnlyModelViewSet):
         try:
             unidad = Unidad.objects.select_related(
                 'carga_item__carga__cliente', 
-                'carga_item__producto'
+                'carga_item__producto'  # ← AÑADE ESTA RELACIÓN
             ).get(codigo_barra=codigo_barra)
             
             serializer = self.get_serializer(unidad)
@@ -202,9 +202,4 @@ class UnidadViewSet(viewsets.ReadOnlyModelViewSet):
             return Response(
                 {'error': 'Unidad no encontrada'},
                 status=status.HTTP_404_NOT_FOUND
-            )
-        except Unidad.MultipleObjectsReturned:
-            # En caso de que haya duplicados (no debería pasar)
-            unidades = Unidad.objects.filter(codigo_barra=codigo_barra)
-            serializer = self.get_serializer(unidades.first())
-            return Response(serializer.data)
+        )

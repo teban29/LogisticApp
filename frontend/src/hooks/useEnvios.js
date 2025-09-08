@@ -153,6 +153,19 @@ export const useEnvios = () => {
     }
   }, []);
 
+  const getEnvio = useCallback(async(id)=> {
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await api.get(`/api/envios/${id}`);
+      return response.data;
+    } catch (err) {
+      return handleError(err);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
   return {
     loading,
     error,

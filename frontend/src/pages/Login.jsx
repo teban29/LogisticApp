@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useAuth } from "../context/AuthContext";
 import { useNavigate } from "react-router-dom";
 import { RiUserLine, RiLockLine, RiEyeLine, RiEyeOffLine, RiArrowRightLine } from "react-icons/ri";
+import logo from "../assets/logo.png"
 
 export default function Login() {
   const navigate = useNavigate();
@@ -34,10 +35,14 @@ export default function Login() {
       <div className="w-full max-w-md bg-white p-8 rounded-2xl shadow-xl border border-gray-100">
         {/* Logo y encabezado */}
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-blue-600 to-blue-800 rounded-2xl shadow-md mb-4">
-            <span className="text-2xl font-bold text-white">🚚</span>
+          <div className="inline-flex items-center justify-center mb-2">
+            <img 
+              src={logo} 
+              alt="Logo" 
+              className="w-56 h-56 object-contain"
+            />
           </div>
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">LogisticApp</h1>
+          <hr className="my-2 border-0 h-px bg-gradient-to-r from-transparent via-gray-300 to-transparent" />
           <p className="text-gray-600">Ingrese a su cuenta para continuar</p>
         </div>
 

@@ -3,6 +3,8 @@ import { useEnvios } from "../hooks/useEnvios";
 import EnvioFormModal from "../components/EnvioFormModal";
 import ConfirmDialog from "../components/ConfirmDialog";
 import { useAuth } from "../context/AuthContext";
+import EnvioDetailModal from "../components/EnvioDetailModal";
+import { useNavigate } from "react-router-dom";
 import {
   RiAddLine,
   RiSearchLine,
@@ -21,32 +23,54 @@ import {
   RiCloseCircleLine,
   RiTimeLine,
   RiCheckLine,
-  RiRefreshLine
+  RiRefreshLine,
 } from "react-icons/ri";
 
 const ESTADOS_ENVIO = {
-  borrador: { label: 'Borrador', color: 'bg-gray-100 text-gray-800', icon: RiTimeLine },
-  pendiente: { label: 'Pendiente', color: 'bg-yellow-100 text-yellow-800', icon: RiTimeLine },
-  en_transito: { label: 'En Tránsito', color: 'bg-blue-100 text-blue-800', icon: RiTruckLine },
-  entregado: { label: 'Entregado', color: 'bg-green-100 text-green-800', icon: RiCheckboxCircleLine },
-  cancelado: { label: 'Cancelado', color: 'bg-red-100 text-red-800', icon: RiCloseCircleLine }
+  borrador: {
+    label: "Borrador",
+    color: "bg-gray-100 text-gray-800",
+    icon: RiTimeLine,
+  },
+  pendiente: {
+    label: "Pendiente",
+    color: "bg-yellow-100 text-yellow-800",
+    icon: RiTimeLine,
+  },
+  en_transito: {
+    label: "En Tránsito",
+    color: "bg-blue-100 text-blue-800",
+    icon: RiTruckLine,
+  },
+  entregado: {
+    label: "Entregado",
+    color: "bg-green-100 text-green-800",
+    icon: RiCheckboxCircleLine,
+  },
+  cancelado: {
+    label: "Cancelado",
+    color: "bg-red-100 text-red-800",
+    icon: RiCloseCircleLine,
+  },
 };
 
 export default function Envios() {
   const { user } = useAuth();
   const isAdmin = user?.rol === "admin";
-  const { 
-    fetchEnvios, 
-    crearEnvio, 
-    actualizarEnvio, 
-    eliminarEnvio, 
-    cambiarEstado, 
-    loading, 
+  const navigate = useNavigate();
+
+  const {
+    fetchEnvios, // ← CAMBIÉ getEnvios por fetchEnvios (debe coincidir con tu hook)
+    crearEnvio,
+    actualizarEnvio,
+    eliminarEnvio,
+    cambiarEstado,
+    loading,
     error,
     envios,
-    count 
+    count,
   } = useEnvios();
-  
+
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
   const [filtroEstado, setFiltroEstado] = useState("");
@@ -56,16 +80,24 @@ export default function Envios() {
   const [openDelete, setOpenDelete] = useState(false);
   const [deleting, setDeleting] = useState(null);
 
+  const [openDetail, setOpenDetail] = useState(false);
+  const [selectedEnvio, setSelectedEnvio] = useState(null);
+
   const pageSize = 10;
+
+  const handleViewDetail = (envio) => {
+    setSelectedEnvio(envio);
+    setOpenDetail(true);
+  };
 
   const fetchData = async () => {
     try {
       const params = { page, search };
       if (filtroEstado) params.estado = filtroEstado;
-      
+
       await fetchEnvios(params);
     } catch (err) {
-      console.error('Error loading envios:', err);
+      console.error("Error loading envios:", err);
     }
   };
 
@@ -73,7 +105,10 @@ export default function Envios() {
     fetchData();
   }, [page, search, filtroEstado]);
 
-  const totalPages = useMemo(() => Math.max(1, Math.ceil(count / pageSize)), [count]);
+  const totalPages = useMemo(
+    () => Math.max(1, Math.ceil(count / pageSize)),
+    [count]
+  );
 
   const handleCreate = () => {
     setEditing(null);
@@ -94,7 +129,7 @@ export default function Envios() {
       }
       await fetchData();
     } catch (err) {
-      console.error('Error saving envio:', err);
+      console.error("Error saving envio:", err);
     }
   };
 
@@ -109,7 +144,7 @@ export default function Envios() {
         await eliminarEnvio(deleting.id);
         await fetchData();
       } catch (err) {
-        console.error('Error deleting envio:', err);
+        console.error("Error deleting envio:", err);
       } finally {
         setOpenDelete(false);
         setDeleting(null);
@@ -122,7 +157,7 @@ export default function Envios() {
       await cambiarEstado(envioId, nuevoEstado);
       await fetchData();
     } catch (err) {
-      console.error('Error changing state:', err);
+      console.error("Error changing state:", err);
     }
   };
 
@@ -147,16 +182,14 @@ export default function Envios() {
         <div className="flex items-center gap-3">
           <button
             onClick={fetchData}
-            className="flex items-center gap-2 px-3 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
-          >
+            className="flex items-center gap-2 px-3 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">
             <RiRefreshLine className="text-lg" />
             <span className="hidden sm:inline">Actualizar</span>
           </button>
           {isAdmin && (
             <button
               onClick={handleCreate}
-              className="flex items-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors"
-            >
+              className="flex items-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors">
               <RiAddLine className="text-lg" />
               <span>Nuevo envío</span>
             </button>
@@ -174,8 +207,7 @@ export default function Envios() {
           {hasFilters && (
             <button
               onClick={clearFilters}
-              className="flex items-center gap-1 text-sm text-blue-600 hover:text-blue-800"
-            >
+              className="flex items-center gap-1 text-sm text-blue-600 hover:text-blue-800">
               <RiCloseLine />
               Limpiar filtros
             </button>
@@ -215,11 +247,12 @@ export default function Envios() {
                 setFiltroEstado(e.target.value);
                 setPage(1);
               }}
-              className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-colors"
-            >
+              className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-colors">
               <option value="">Todos los estados</option>
               {Object.entries(ESTADOS_ENVIO).map(([key, { label }]) => (
-                <option key={key} value={key}>{label}</option>
+                <option key={key} value={key}>
+                  {label}
+                </option>
               ))}
             </select>
           </div>
@@ -232,6 +265,8 @@ export default function Envios() {
           <table className="w-full">
             <thead className="bg-gray-50">
               <tr>
+                {" "}
+                {/* ← QUITÉ EL onClick Y EL key DE AQUÍ */}
                 <th className="p-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   N° Guía
                 </th>
@@ -275,8 +310,7 @@ export default function Envios() {
                       <p className="font-medium">{error}</p>
                       <button
                         onClick={fetchData}
-                        className="mt-3 px-4 py-2 bg-red-100 hover:bg-red-200 text-red-700 rounded-lg transition-colors"
-                      >
+                        className="mt-3 px-4 py-2 bg-red-100 hover:bg-red-200 text-red-700 rounded-lg transition-colors">
                         Reintentar
                       </button>
                     </div>
@@ -305,18 +339,27 @@ export default function Envios() {
               {!loading &&
                 !error &&
                 envios.map((envio) => {
-                  const EstadoIcon = ESTADOS_ENVIO[envio.estado]?.icon || RiTimeLine;
-                  const estadoConfig = ESTADOS_ENVIO[envio.estado] || ESTADOS_ENVIO.borrador;
-                  
+                  const EstadoIcon =
+                    ESTADOS_ENVIO[envio.estado]?.icon || RiTimeLine;
+                  const estadoConfig =
+                    ESTADOS_ENVIO[envio.estado] || ESTADOS_ENVIO.borrador;
+
                   return (
-                    <tr key={envio.id} className="hover:bg-gray-50 transition-colors">
-                      <td className="p-4 font-mono text-sm font-medium text-gray-900">
+                    <tr key={envio.id}>
+                      {" "}
+                      {/* ← key CORRECTO AQUÍ */}
+                      <td
+                        className="p-4 font-mono text-sm font-medium text-gray-900 cursor-pointer hover:text-blue-600 hover:underline"
+                        onClick={() => navigate(`/envios/${envio.id}`)}
+                        title="Ver detalles del envío">
                         {envio.numero_guia}
                       </td>
                       <td className="p-4">
                         <div className="flex items-center gap-2">
                           <RiUserLine className="text-gray-400 flex-shrink-0" />
-                          <span className="font-medium">{envio.cliente_nombre}</span>
+                          <span className="font-medium">
+                            {envio.cliente_nombre}
+                          </span>
                         </div>
                       </td>
                       <td className="p-4">
@@ -328,7 +371,9 @@ export default function Envios() {
                       <td className="p-4">
                         <div className="flex items-center gap-2">
                           <RiMoneyDollarCircleLine className="text-gray-400 flex-shrink-0" />
-                          <span className="font-medium">${envio.valor_total}</span>
+                          <span className="font-medium">
+                            ${envio.valor_total}
+                          </span>
                         </div>
                       </td>
                       <td className="p-4">
@@ -340,7 +385,8 @@ export default function Envios() {
                         </div>
                       </td>
                       <td className="p-4">
-                        <span className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-medium ${estadoConfig.color}`}>
+                        <span
+                          className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-medium ${estadoConfig.color}`}>
                           <EstadoIcon className="text-sm" />
                           {estadoConfig.label}
                         </span>
@@ -348,27 +394,34 @@ export default function Envios() {
                       <td className="p-4">
                         <div className="flex gap-2 justify-end">
                           <button
+                            onClick={() => handleViewDetail(envio)}
+                            className="p-2 text-gray-500 hover:text-purple-600 hover:bg-purple-50 rounded-lg transition-colors"
+                            title="Ver detalle">
+                            <RiEyeLine className="text-lg" />
+                          </button>
+                          <button
                             onClick={() => handleEdit(envio)}
                             className="p-2 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                            title="Editar envío"
-                          >
+                            title="Editar envío">
                             <RiEditLine className="text-lg" />
                           </button>
-                          {isAdmin && envio.estado === 'pendiente' && (
+                          {isAdmin && envio.estado === "pendiente" && (
                             <button
-                              onClick={() => handleCambiarEstado(envio.id, 'en_transito')}
+                              onClick={() =>
+                                handleCambiarEstado(envio.id, "en_transito")
+                              }
                               className="p-2 text-gray-500 hover:text-green-600 hover:bg-green-50 rounded-lg transition-colors"
-                              title="Marcar como en tránsito"
-                            >
+                              title="Marcar como en tránsito">
                               <RiCheckLine className="text-lg" />
                             </button>
                           )}
-                          {isAdmin && envio.estado === 'en_transito' && (
+                          {isAdmin && envio.estado === "en_transito" && (
                             <button
-                              onClick={() => handleCambiarEstado(envio.id, 'entregado')}
+                              onClick={() =>
+                                handleCambiarEstado(envio.id, "entregado")
+                              }
                               className="p-2 text-gray-500 hover:text-green-600 hover:bg-green-50 rounded-lg transition-colors"
-                              title="Marcar como entregado"
-                            >
+                              title="Marcar como entregado">
                               <RiCheckLine className="text-lg" />
                             </button>
                           )}
@@ -396,8 +449,7 @@ export default function Envios() {
               <button
                 onClick={() => setPage((p) => Math.max(1, p - 1))}
                 disabled={page <= 1}
-                className="flex items-center gap-1 px-3 py-1.5 text-sm border border-gray-300 rounded-lg hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-              >
+                className="flex items-center gap-1 px-3 py-1.5 text-sm border border-gray-300 rounded-lg hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
                 <RiArrowLeftSLine />
                 Anterior
               </button>
@@ -412,8 +464,7 @@ export default function Envios() {
                         page === pageNum
                           ? "bg-blue-600 text-white"
                           : "text-gray-700 hover:bg-gray-100"
-                      } transition-colors`}
-                    >
+                      } transition-colors`}>
                       {pageNum}
                     </button>
                   );
@@ -423,8 +474,7 @@ export default function Envios() {
               <button
                 onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
                 disabled={page >= totalPages}
-                className="flex items-center gap-1 px-3 py-1.5 text-sm border border-gray-300 rounded-lg hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-              >
+                className="flex items-center gap-1 px-3 py-1.5 text-sm border border-gray-300 rounded-lg hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
                 Siguiente
                 <RiArrowRightSLine />
               </button>
@@ -440,6 +490,15 @@ export default function Envios() {
           onClose={() => setOpenForm(false)}
           onSubmit={handleSubmit}
           editing={editing}
+        />
+      )}
+
+      {/* Modal de detalle */}
+      {openDetail && (
+        <EnvioDetailModal
+          open={openDetail}
+          onClose={() => setOpenDetail(false)}
+          envio={selectedEnvio}
         />
       )}
 

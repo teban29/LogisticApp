@@ -1,5 +1,6 @@
 import { NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import logo from '../assets/logo.png';
 import {
   RiDashboardLine,
   RiTeamLine,
@@ -93,18 +94,12 @@ export default function Sidebar({ open, setOpen }) {
       >
         {/* Encabezado */}
         <div className="flex items-center justify-between mb-8">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-600 to-blue-800 flex items-center justify-center text-white font-bold">
-              🚚
-            </div>
-            <div>
-              <div className="font-bold text-gray-900">LogísticApp</div>
-              {user && (
-                <div className="text-xs text-gray-500 mt-0.5">
-                  {user.nombre} {user.apellido} • <span className="capitalize">{user.rol}</span>
-                </div>
-              )}
-            </div>
+          <div className="flex items-center justify-center w-full">
+            <img 
+              src={logo} 
+              alt="Logo" 
+              className="w-50 h-25 object-cover"
+            />
           </div>
 
           <button

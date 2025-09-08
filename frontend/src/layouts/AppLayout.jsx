@@ -69,25 +69,11 @@ export default function AppLayout() {
         <div className="h-full px-6 flex items-center justify-between">
           <div className="flex-1 max-w-md">
             <div className="relative">
-              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <RiSearchLine className="h-4 w-4 text-gray-400" />
-              </div>
-              <input
-                type="text"
-                placeholder="Buscar..."
-                className="w-full pl-10 pr-4 py-2.5 bg-gray-50 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-colors"
-              />
+              
             </div>
           </div>
           
           <div className="flex items-center gap-4">
-            <button className="relative w-10 h-10 rounded-lg flex items-center justify-center text-gray-600 hover:bg-gray-100 transition-colors">
-              <RiNotification3Line className="text-xl" />
-              <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full"></span>
-            </button>
-            
-            <div className="w-px h-6 bg-gray-300"></div>
-            
             <div className="flex items-center gap-3">
               <div className="w-9 h-9 rounded-full bg-gradient-to-br from-blue-600 to-blue-800 flex items-center justify-center text-white font-medium text-sm">
                 {userInitials}
