@@ -36,8 +36,20 @@ import {
   RiFilePdfLine,
   RiImageLine,
   RiFileLine,
+  RiCalendarEventLine,
+  RiCalendarCheckLine,
+  RiCalendar2Line,
 } from "react-icons/ri";
 import { useNavigate } from "react-router-dom";
+
+// Opciones predefinidas para filtros de fecha
+const FILTROS_FECHA = {
+  hoy: "Hoy",
+  ultima_semana: "Última semana",
+  ultimo_mes: "Último mes",
+  ultimo_ano: "Último año",
+  personalizado: "Personalizado",
+};
 
 export default function Cargas() {
   const { user } = useAuth();
@@ -46,6 +58,9 @@ export default function Cargas() {
   const [count, setCount] = useState(0);
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
+  const [filtroFecha, setFiltroFecha] = useState("");
+  const [fechaInicio, setFechaInicio] = useState("");
+  const [fechaFin, setFechaFin] = useState("");
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState("");
 
@@ -65,7 +80,22 @@ export default function Cargas() {
     setLoading(true);
     setErr("");
     try {
-      const data = await listCargas({ page, search });
+      const params = { page, search };
+
+      // Agregar filtros de fecha si están configurados
+      if (filtroFecha && filtroFecha !== "personalizado") {
+        params.fecha_rango = filtroFecha;
+      }
+
+      if (filtroFecha === "personalizado" && fechaInicio && fechaFin) {
+        params.fecha_inicio = fechaInicio;
+        params.fecha_fin = fechaFin;
+      }
+
+      console.log("Parámetros enviados al backend:", params); // ← Agrega esto
+
+      const data = await listCargas(params);
+      // ... resto del código
       if ("results" in data) {
         setCargas(data.results);
         setCount(data.count);
@@ -82,7 +112,7 @@ export default function Cargas() {
 
   useEffect(() => {
     fetchData();
-  }, [page, search]);
+  }, [page, search, filtroFecha, fechaInicio, fechaFin]);
 
   const totalPages = useMemo(
     () => Math.max(1, Math.ceil(count / pageSize)),
@@ -113,7 +143,6 @@ export default function Cargas() {
     try {
       await generarUnidades(cargaId);
       await fetchData();
-      // Mostrar notificación de éxito
     } catch (err) {
       console.error(err);
       alert("Error generando unidades. Por favor, intente nuevamente.");
@@ -157,14 +186,64 @@ export default function Cargas() {
     }
   };
 
-  const clearSearch = () => {
+  const clearFilters = () => {
     setSearch("");
+    setFiltroFecha("");
+    setFechaInicio("");
+    setFechaFin("");
     setPage(1);
   };
 
-  const hasSearch = search.length > 0;
+  const hasFilters = search || filtroFecha || fechaInicio || fechaFin;
 
   const navigate = useNavigate();
+
+  // Calcular fechas para los rangos predefinidos
+  const calcularFechasRango = (rango) => {
+    const hoy = new Date();
+    switch (rango) {
+      case "hoy":
+        return {
+          inicio: hoy.toISOString().split("T")[0],
+          fin: hoy.toISOString().split("T")[0],
+        };
+      case "ultima_semana":
+        const hace7Dias = new Date();
+        hace7Dias.setDate(hoy.getDate() - 7);
+        return {
+          inicio: hace7Dias.toISOString().split("T")[0],
+          fin: hoy.toISOString().split("T")[0],
+        };
+      case "ultimo_mes":
+        const hace1Mes = new Date();
+        hace1Mes.setMonth(hoy.getMonth() - 1);
+        return {
+          inicio: hace1Mes.toISOString().split("T")[0],
+          fin: hoy.toISOString().split("T")[0],
+        };
+      case "ultimo_ano":
+        const hace1Ano = new Date();
+        hace1Ano.setFullYear(hoy.getFullYear() - 1);
+        return {
+          inicio: hace1Ano.toISOString().split("T")[0],
+          fin: hoy.toISOString().split("T")[0],
+        };
+      default:
+        return { inicio: "", fin: "" };
+    }
+  };
+
+  const handleFiltroFechaChange = (value) => {
+    setFiltroFecha(value);
+
+    // Si no es personalizado, limpiar las fechas manuales
+    if (value !== "personalizado") {
+      setFechaInicio("");
+      setFechaFin("");
+    }
+
+    setPage(1);
+  };
 
   return (
     <div className="p-6">
@@ -200,34 +279,127 @@ export default function Cargas() {
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2">
             <RiFilterLine className="text-gray-500" />
-            <h2 className="font-medium text-gray-700">Búsqueda</h2>
+            <h2 className="font-medium text-gray-700">Filtros</h2>
           </div>
-          {hasSearch && (
+          {hasFilters && (
             <button
-              onClick={clearSearch}
+              onClick={clearFilters}
               className="flex items-center gap-1 text-sm text-blue-600 hover:text-blue-800">
               <RiCloseLine />
-              Limpiar búsqueda
+              Limpiar todos
             </button>
           )}
         </div>
 
-        <div className="grid grid-cols-1 gap-4">
-          <div className="relative">
-            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-              <RiSearchLine className="h-4 w-4 text-gray-400" />
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {/* Búsqueda por texto */}
+          <div className="md:col-span-1">
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Búsqueda
+            </label>
+            <div className="relative">
+              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                <RiSearchLine className="h-4 w-4 text-gray-400" />
+              </div>
+              <input
+                placeholder="Remisión, cliente, proveedor..."
+                className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-colors"
+                value={search}
+                onChange={(e) => {
+                  setSearch(e.target.value);
+                  setPage(1);
+                }}
+              />
             </div>
-            <input
-              placeholder="Buscar por remisión, cliente o proveedor"
-              className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-colors"
-              value={search}
-              onChange={(e) => {
-                setSearch(e.target.value);
-                setPage(1);
-              }}
-            />
           </div>
+
+          {/* Filtro de fecha predefinido */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Rango de fecha
+            </label>
+            <select
+              value={filtroFecha}
+              onChange={(e) => handleFiltroFechaChange(e.target.value)}
+              className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-colors">
+              <option value="">Todos los tiempos</option>
+              {Object.entries(FILTROS_FECHA).map(([key, label]) => (
+                <option key={key} value={key}>
+                  {label}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Filtro de fecha personalizado (solo visible cuando se selecciona "Personalizado") */}
+          {filtroFecha === "personalizado" && (
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Desde
+                </label>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <RiCalendarEventLine className="h-4 w-4 text-gray-400" />
+                  </div>
+                  <input
+                    type="date"
+                    value={fechaInicio}
+                    onChange={(e) => {
+                      setFechaInicio(e.target.value);
+                      setPage(1);
+                    }}
+                    className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-colors"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Hasta
+                </label>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <RiCalendarCheckLine className="h-4 w-4 text-gray-400" />
+                  </div>
+                  <input
+                    type="date"
+                    value={fechaFin}
+                    onChange={(e) => {
+                      setFechaFin(e.target.value);
+                      setPage(1);
+                    }}
+                    className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-colors"
+                  />
+                </div>
+              </div>
+            </div>
+          )}
         </div>
+
+        {/* Mostrar rango de fechas activo */}
+        {filtroFecha && filtroFecha !== "personalizado" && (
+          <div className="mt-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+            <div className="flex items-center gap-2 text-sm text-blue-700">
+              <RiCalendar2Line />
+              <span>
+                Mostrando {FILTROS_FECHA[filtroFecha].toLowerCase()}:{" "}
+                {calcularFechasRango(filtroFecha).inicio} -{" "}
+                {calcularFechasRango(filtroFecha).fin}
+              </span>
+            </div>
+          </div>
+        )}
+
+        {filtroFecha === "personalizado" && fechaInicio && fechaFin && (
+          <div className="mt-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+            <div className="flex items-center gap-2 text-sm text-blue-700">
+              <RiCalendar2Line />
+              <span>
+                Rango personalizado: {fechaInicio} - {fechaFin}
+              </span>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Tabla de cargas */}
@@ -296,7 +468,7 @@ export default function Cargas() {
                         No se encontraron cargas
                       </p>
                       <p className="text-sm text-gray-500 mt-1">
-                        {hasSearch
+                        {hasFilters
                           ? "Intente ajustar los términos de búsqueda"
                           : "Comience agregando una nueva carga"}
                       </p>
@@ -501,8 +673,7 @@ export default function Cargas() {
                   navigate(`/cargas/${currentCargaDetail.id}`);
                 }}
                 className="flex items-center gap-2 px-4 py-2 bg-blue-50 hover:bg-blue-100 text-blue-700 font-medium rounded-lg transition-colors border border-blue-200 shadow-none"
-                style={{ fontSize: "15px" }}
-              >
+                style={{ fontSize: "15px" }}>
                 <RiEyeLine className="text-blue-500 text-base" />
                 Ver más detalles
               </button>

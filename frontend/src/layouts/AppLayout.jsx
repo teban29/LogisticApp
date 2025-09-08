@@ -34,12 +34,6 @@ export default function AppLayout() {
             >
               <RiMenuLine className="text-xl text-gray-700" />
             </button>
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-600 to-blue-800 flex items-center justify-center">
-                <span className="text-white font-bold text-sm">🚚</span>
-              </div>
-              <h1 className="font-semibold text-gray-900">LogísticApp</h1>
-            </div>
           </div>
           
           <div className="flex items-center gap-2">

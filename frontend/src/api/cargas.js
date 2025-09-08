@@ -2,12 +2,23 @@
 import api from "./axios";
 
 export async function listCargas(params = {}) {
-  const { page = 1, search = "" } = params;
+  const { 
+    page = 1, 
+    search = "", 
+    fecha_rango = "",
+    fecha_inicio = "",
+    fecha_fin = "",
+    ordering = "-created_at" 
+  } = params;
+  
   const res = await api.get("/api/cargas/", {
     params: {
       page,
       search: search || undefined,
-      ordering: "-created_at",
+      fecha_rango: fecha_rango || undefined,
+      fecha_inicio: fecha_inicio || undefined,
+      fecha_fin: fecha_fin || undefined,
+      ordering,
     },
   });
   return res.data;

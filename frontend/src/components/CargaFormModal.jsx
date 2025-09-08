@@ -13,10 +13,15 @@ import {
   RiInformationLine,
   RiBox3Line,
   RiNumbersLine,
-  RiCheckboxCircleLine
+  RiCheckboxCircleLine,
 } from "react-icons/ri";
 
-export default function CargaFormModal({ open, onClose, onSubmit, editing = null }) {
+export default function CargaFormModal({
+  open,
+  onClose,
+  onSubmit,
+  editing = null,
+}) {
   const [form, setForm] = useState({
     cliente: "",
     proveedor: "",
@@ -35,6 +40,7 @@ export default function CargaFormModal({ open, onClose, onSubmit, editing = null
   const [loadingOptions, setLoadingOptions] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [hasChanges, setHasChanges] = useState(false); // ← Nuevo estado
 
   // Cargar clientes cuando se abre el modal
   useEffect(() => {
@@ -43,10 +49,14 @@ export default function CargaFormModal({ open, onClose, onSubmit, editing = null
     const fetchClients = async () => {
       setLoadingOptions(true);
       try {
-        const cData = await (listClients ? listClients({ page: 1 }) : Promise.resolve({ results: [] }));
+        const cData = await (listClients
+          ? listClients({ page: 1 })
+          : Promise.resolve({ results: [] }));
         const clientsList = cData?.results || cData || [];
         if (!mounted) return;
-        setClientesOptions(clientsList.map((c) => ({ value: c.id, label: c.nombre })));
+        setClientesOptions(
+          clientsList.map((c) => ({ value: c.id, label: c.nombre }))
+        );
       } catch (err) {
         console.error("Error fetching clients:", err);
         if (mounted) setClientesOptions([]);
@@ -118,6 +128,7 @@ export default function CargaFormModal({ open, onClose, onSubmit, editing = null
       setItems([{ producto_nombre: "", producto_sku: "", cantidad: 1 }]);
       setError("");
       setProveedoresOptions([]);
+      setHasChanges(false); // ← Resetear cambios al cerrar
     }
   }, [open]);
 
@@ -133,11 +144,13 @@ export default function CargaFormModal({ open, onClose, onSubmit, editing = null
         facturaFile: null,
         auto_generar_unidades: true,
       });
-      setItems((editing.items || []).map(it => ({
-        producto_nombre: it.producto?.nombre || "",
-        producto_sku: it.producto?.sku || "",
-        cantidad: it.cantidad || 1
-      })));
+      setItems(
+        (editing.items || []).map((it) => ({
+          producto_nombre: it.producto?.nombre || "",
+          producto_sku: it.producto?.sku || "",
+          cantidad: it.cantidad || 1,
+        }))
+      );
     } else {
       setForm({
         cliente: "",
@@ -150,6 +163,47 @@ export default function CargaFormModal({ open, onClose, onSubmit, editing = null
       setItems([{ producto_nombre: "", producto_sku: "", cantidad: 1 }]);
     }
   }, [editing, open]);
+
+  // ← Nuevo useEffect para detectar cambios
+  useEffect(() => {
+    if (open) {
+      const initialForm = editing
+        ? {
+            cliente: editing.cliente || "",
+            proveedor: editing.proveedor || "",
+            remision: editing.remision || "",
+            observaciones: editing.observaciones || "",
+            facturaFile: null,
+            auto_generar_unidades: true,
+          }
+        : {
+            cliente: "",
+            proveedor: "",
+            remision: "",
+            observaciones: "",
+            facturaFile: null,
+            auto_generar_unidades: true,
+          };
+
+      const initialItems = editing
+        ? (editing.items || []).map((it) => ({
+            producto_nombre: it.producto?.nombre || "",
+            producto_sku: it.producto?.sku || "",
+            cantidad: it.cantidad || 1,
+          }))
+        : [{ producto_nombre: "", producto_sku: "", cantidad: 1 }];
+
+      const checkForChanges = () => {
+        const formChanged =
+          JSON.stringify(form) !== JSON.stringify(initialForm);
+        const itemsChanged =
+          JSON.stringify(items) !== JSON.stringify(initialItems);
+        return formChanged || itemsChanged;
+      };
+
+      setHasChanges(checkForChanges());
+    }
+  }, [form, items, open, editing]);
 
   const handleChange = (e) => {
     const { name, value, type, checked, files } = e.target;
@@ -171,15 +225,19 @@ export default function CargaFormModal({ open, onClose, onSubmit, editing = null
   };
 
   const addItem = () =>
-    setItems((prev) => [...prev, { producto_nombre: "", producto_sku: "", cantidad: 1 }]);
-  
-  const removeItem = (i) => setItems((prev) => prev.filter((_, idx) => idx !== i));
+    setItems((prev) => [
+      ...prev,
+      { producto_nombre: "", producto_sku: "", cantidad: 1 },
+    ]);
+
+  const removeItem = (i) =>
+    setItems((prev) => prev.filter((_, idx) => idx !== i));
 
   const handleSubmit = async (e) => {
     e?.preventDefault?.();
-    setError(""); 
+    setError("");
     setSaving(true);
-    
+
     // Validaciones
     if (!form.cliente) {
       setError("Selecciona un cliente");
@@ -208,7 +266,7 @@ export default function CargaFormModal({ open, onClose, onSubmit, editing = null
         return;
       }
     }
-    
+
     const payload = {
       cliente: Number(form.cliente),
       proveedor: Number(form.proveedor),
@@ -229,11 +287,13 @@ export default function CargaFormModal({ open, onClose, onSubmit, editing = null
     } catch (err) {
       console.error(err);
       const serverData = err?.response?.data;
-      let message = "Error al guardar la carga. Por favor, verifique los datos.";
+      let message =
+        "Error al guardar la carga. Por favor, verifique los datos.";
       if (serverData) {
         if (serverData.detail) message = serverData.detail;
-        else if (typeof serverData === 'string') message = serverData;
-        else if (typeof serverData === 'object') message = JSON.stringify(serverData);
+        else if (typeof serverData === "string") message = serverData;
+        else if (typeof serverData === "object")
+          message = JSON.stringify(serverData);
       }
       setError(message);
     } finally {
@@ -242,11 +302,13 @@ export default function CargaFormModal({ open, onClose, onSubmit, editing = null
   };
 
   return (
-    <Modal 
-      open={open} 
-      onClose={onClose} 
+    <Modal
+      open={open}
+      onClose={onClose}
       title={editing ? "Editar carga" : "Crear carga"}
       size="lg"
+      preventClose={hasChanges && !saving} // ← Nueva prop
+      closeConfirmationMessage="¿Está seguro que desea salir? Se perderán los cambios no guardados de la carga." // ← Nueva prop
     >
       {error && (
         <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-700 rounded-lg flex items-center">
@@ -273,8 +335,7 @@ export default function CargaFormModal({ open, onClose, onSubmit, editing = null
                 onChange={handleChange}
                 className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-colors disabled:bg-gray-50 disabled:text-gray-500"
                 required
-                disabled={loadingOptions}
-              >
+                disabled={loadingOptions}>
                 <option value="">Selecciona un cliente</option>
                 {clientesOptions.map((c) => (
                   <option key={c.value} value={c.value}>
@@ -300,10 +361,11 @@ export default function CargaFormModal({ open, onClose, onSubmit, editing = null
                 onChange={handleChange}
                 className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-colors disabled:bg-gray-50 disabled:text-gray-500"
                 required
-                disabled={!form.cliente || loadingOptions}
-              >
+                disabled={!form.cliente || loadingOptions}>
                 <option value="">
-                  {form.cliente ? "Selecciona un proveedor" : "Primero selecciona un cliente"}
+                  {form.cliente
+                    ? "Selecciona un proveedor"
+                    : "Primero selecciona un cliente"}
                 </option>
                 {proveedoresOptions.map((p) => (
                   <option key={p.value} value={p.value}>
@@ -381,10 +443,12 @@ export default function CargaFormModal({ open, onClose, onSubmit, editing = null
             <RiBox3Line />
             Items de la carga <span className="text-red-500">*</span>
           </h3>
-          
+
           <div className="space-y-3">
             {items.map((it, idx) => (
-              <div key={idx} className="p-4 border border-gray-200 rounded-lg bg-gray-50/50 hover:bg-gray-50 transition-colors">
+              <div
+                key={idx}
+                className="p-4 border border-gray-200 rounded-lg bg-gray-50/50 hover:bg-gray-50 transition-colors">
                 <div className="grid grid-cols-1 md:grid-cols-6 gap-3 items-end">
                   {/* Nombre del producto */}
                   <div className="md:col-span-3">
@@ -397,7 +461,13 @@ export default function CargaFormModal({ open, onClose, onSubmit, editing = null
                       </div>
                       <input
                         value={it.producto_nombre}
-                        onChange={(e) => handleItemChange(idx, "producto_nombre", e.target.value)}
+                        onChange={(e) =>
+                          handleItemChange(
+                            idx,
+                            "producto_nombre",
+                            e.target.value
+                          )
+                        }
                         className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-colors"
                         placeholder="Nombre del producto"
                         required
@@ -412,7 +482,9 @@ export default function CargaFormModal({ open, onClose, onSubmit, editing = null
                     </label>
                     <input
                       value={it.producto_sku}
-                      onChange={(e) => handleItemChange(idx, "producto_sku", e.target.value)}
+                      onChange={(e) =>
+                        handleItemChange(idx, "producto_sku", e.target.value)
+                      }
                       className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-colors"
                       placeholder="Código SKU"
                     />
@@ -431,7 +503,13 @@ export default function CargaFormModal({ open, onClose, onSubmit, editing = null
                         type="number"
                         min={1}
                         value={it.cantidad}
-                        onChange={(e) => handleItemChange(idx, "cantidad", Number(e.target.value))}
+                        onChange={(e) =>
+                          handleItemChange(
+                            idx,
+                            "cantidad",
+                            Number(e.target.value)
+                          )
+                        }
                         className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-colors"
                         required
                       />
@@ -444,8 +522,7 @@ export default function CargaFormModal({ open, onClose, onSubmit, editing = null
                       type="button"
                       onClick={() => removeItem(idx)}
                       className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                      title="Eliminar item"
-                    >
+                      title="Eliminar item">
                       <RiCloseLine className="text-lg" />
                     </button>
                     {idx === items.length - 1 && (
@@ -453,8 +530,7 @@ export default function CargaFormModal({ open, onClose, onSubmit, editing = null
                         type="button"
                         onClick={addItem}
                         className="p-2 text-green-600 hover:bg-green-50 rounded-lg transition-colors"
-                        title="Agregar otro item"
-                      >
+                        title="Agregar otro item">
                         <RiAddLine className="text-lg" />
                       </button>
                     )}
@@ -467,8 +543,7 @@ export default function CargaFormModal({ open, onClose, onSubmit, editing = null
           <button
             type="button"
             onClick={addItem}
-            className="mt-3 flex items-center gap-2 px-4 py-2 text-sm text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-lg transition-colors"
-          >
+            className="mt-3 flex items-center gap-2 px-4 py-2 text-sm text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-lg transition-colors">
             <RiAddLine />
             Agregar otro item
           </button>
@@ -478,15 +553,21 @@ export default function CargaFormModal({ open, onClose, onSubmit, editing = null
         <div className="border-t pt-4">
           <label className="inline-flex items-center gap-3 p-3 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors cursor-pointer">
             <div className="relative">
-              <input 
-                type="checkbox" 
-                name="auto_generar_unidades" 
-                checked={form.auto_generar_unidades} 
-                onChange={handleChange} 
+              <input
+                type="checkbox"
+                name="auto_generar_unidades"
+                checked={form.auto_generar_unidades}
+                onChange={handleChange}
                 className="sr-only"
               />
-              <div className={`w-10 h-6 rounded-full transition-colors ${form.auto_generar_unidades ? 'bg-blue-600' : 'bg-gray-300'}`}>
-                <div className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full transition-transform ${form.auto_generar_unidades ? 'transform translate-x-4' : ''}`}></div>
+              <div
+                className={`w-10 h-6 rounded-full transition-colors ${
+                  form.auto_generar_unidades ? "bg-blue-600" : "bg-gray-300"
+                }`}>
+                <div
+                  className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full transition-transform ${
+                    form.auto_generar_unidades ? "transform translate-x-4" : ""
+                  }`}></div>
               </div>
             </div>
             <div className="flex items-center gap-2">
@@ -495,7 +576,9 @@ export default function CargaFormModal({ open, onClose, onSubmit, editing = null
               ) : (
                 <RiCloseLine className="text-gray-400" />
               )}
-              <span className="text-sm font-medium text-gray-700">Generar unidades automáticamente</span>
+              <span className="text-sm font-medium text-gray-700">
+                Generar unidades automáticamente
+              </span>
             </div>
           </label>
           <p className="text-xs text-gray-500 mt-1 ml-16">
@@ -505,19 +588,17 @@ export default function CargaFormModal({ open, onClose, onSubmit, editing = null
 
         {/* Botones de acción */}
         <div className="flex justify-end gap-3 pt-4 border-t border-gray-200">
-          <button 
-            type="button" 
+          <button
+            type="button"
             onClick={onClose}
             className="px-4 py-2.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
-            disabled={saving}
-          >
+            disabled={saving}>
             Cancelar
           </button>
-          <button 
-            type="submit" 
+          <button
+            type="submit"
             disabled={saving}
-            className="flex items-center gap-2 px-5 py-2.5 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-lg hover:bg-blue-700 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
+            className="flex items-center gap-2 px-5 py-2.5 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-lg hover:bg-blue-700 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed">
             {saving ? (
               <>
                 <RiLoader4Line className="animate-spin" />
@@ -526,7 +607,7 @@ export default function CargaFormModal({ open, onClose, onSubmit, editing = null
             ) : (
               <>
                 <RiSaveLine />
-                {editing ? 'Actualizar carga' : 'Crear carga'}
+                {editing ? "Actualizar carga" : "Crear carga"}
               </>
             )}
           </button>

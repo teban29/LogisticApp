@@ -1,6 +1,7 @@
 import { useState, useCallback } from "react";
 import {
   listEnvios,
+  getEnvio as getEnvioAPI,
   createEnvio,
   updateEnvio as updateEnvioAPI,
   deleteEnvio,
@@ -153,12 +154,12 @@ export const useEnvios = () => {
     }
   }, []);
 
-  const getEnvio = useCallback(async(id)=> {
+  const getEnvio = useCallback(async (id) => {
     setLoading(true);
     setError(null);
     try {
-      const response = await api.get(`/api/envios/${id}`);
-      return response.data;
+      const data = await getEnvioAPI(id);
+      return data;
     } catch (err) {
       return handleError(err);
     } finally {
@@ -179,6 +180,7 @@ export const useEnvios = () => {
     removerItem,
     obtenerCargasPorCliente,
     cambiarEstado,
+    getEnvio,
     clearError: () => setError(null),
   };
 };

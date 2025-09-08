@@ -35,6 +35,7 @@ export default function EnvioFormModal({ open, onClose, onSubmit, editing }) {
   const [errorScan, setErrorScan] = useState("");
   const [loadingValidation, setLoadingValidation] = useState(false);
   const { loading: enviosLoading } = useEnvios();
+  const [hasChanges, setHasChanges] = useState(false);
 
   useEffect(() => {
     const fetchClients = async () => {
@@ -116,6 +117,60 @@ export default function EnvioFormModal({ open, onClose, onSubmit, editing }) {
     setCodigoBarras("");
     setErrorScan("");
   }, [editing, open, isEdit]);
+
+  // Agregar este useEffect después del useEffect existente que carga los datos de edición
+  useEffect(() => {
+    if (open) {
+      const initialFormData =
+        isEdit && editing
+          ? {
+              cliente: editing.cliente,
+              conductor: editing.conductor || "",
+              placa_vehiculo: editing.placa_vehiculo || "",
+              origen: editing.origen || "",
+              items_data: (editing.items || [])
+                .map((item) => {
+                  const codigoBarra =
+                    item.unidad_codigo ||
+                    item.unidad?.codigo_barra ||
+                    item.unidad_detalle?.codigo_barra ||
+                    "";
+                  const productoNombre =
+                    item.producto_nombre ||
+                    item.unidad?.carga_item?.producto?.nombre ||
+                    item.unidad_detalle?.carga_item?.producto?.nombre ||
+                    "Producto";
+
+                  return {
+                    id: item.id,
+                    unidad_codigo: codigoBarra,
+                    valor_unitario: Number(item.valor_unitario) || 0,
+                    producto_nombre: productoNombre,
+                    temporal_id: item.id || `existing_${item.id}`,
+                  };
+                })
+                .filter((item) => item.unidad_codigo),
+            }
+          : initialForm;
+
+      const checkForChanges = () => {
+        const formChanged =
+          JSON.stringify(form) !== JSON.stringify(initialFormData);
+        return formChanged;
+      };
+
+      setHasChanges(checkForChanges());
+    }
+  }, [form, open, isEdit, editing]);
+
+useEffect(() => {
+  if (!open) {
+    setForm(initialForm);
+    setCodigoBarras("");
+    setErrorScan("");
+    setHasChanges(false);
+  }
+}, [open]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -266,9 +321,14 @@ export default function EnvioFormModal({ open, onClose, onSubmit, editing }) {
       items_data: payloadItems,
     };
 
-    console.log("Payload final:", payload);
-    await onSubmit(payload, editing?.id);
-    onClose();
+    try {
+      await onSubmit(payload, editing?.id);
+      setHasChanges(false);
+      onClose();
+    } catch (error) {
+      console.error("Error al guardar el envío:", error);
+      setErrorScan("Error al guardar el envío. Intente nuevamente.");
+    }
   };
 
   const selectedClient = clientOptions.find(
@@ -284,7 +344,9 @@ export default function EnvioFormModal({ open, onClose, onSubmit, editing }) {
       open={open}
       onClose={onClose}
       title={isEdit ? "Editar envío" : "Crear envío"}
-      size="xl">
+      size="xl"
+      preventClose={hasChanges && !enviosLoading}
+      closeConfirmationMessage="¿Está seguro que desea salir? Se perderán los cambios no guardados del envío.">
       <form onSubmit={handleSubmit} className="space-y-6">
         {/* Campos del formulario (igual que antes) */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

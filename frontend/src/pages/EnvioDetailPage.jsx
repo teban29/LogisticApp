@@ -1,7 +1,9 @@
 import { useEffect, useState } from "react";
-import { useParams, Link, useNavigate } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
 import { useEnvios } from "../hooks/useEnvios";
 import { useAuth } from "../context/AuthContext";
+import EnvioFormModal from "../components/EnvioFormModal";
+import api from "../api/axios";
 import {
   RiTruckLine,
   RiUserLine,
@@ -82,41 +84,121 @@ const getProductoNombre = (item) => {
   return "Producto";
 };
 
+const getRemision = (item) => {
+  if (item.unidad && item.unidad.carga_item && item.unidad.carga_item.carga) {
+    return item.unidad.carga_item.carga.remision || "N/A";
+  }
+  return "N/A";
+};
+
+const getProveedor = (item) => {
+  if (
+    item.unidad &&
+    item.unidad.carga_item &&
+    item.unidad.carga_item.carga &&
+    item.unidad.carga_item.carga.proveedor
+  ) {
+    return item.unidad.carga_item.carga.proveedor.nombre || "N/A";
+  }
+  return "N/A";
+};
+
 export default function EnvioDetailPage() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { user } = useAuth();
   const isAdmin = user?.rol === "admin";
 
-  const { fetchEnvios, loading, error } = useEnvios();
+  const { getEnvio, actualizarEnvio, loading, error } = useEnvios();
   const [envio, setEnvio] = useState(null);
   const [loadingEnvio, setLoadingEnvio] = useState(true);
+
+  const [openEditModal, setOpenEditModal] = useState(false);
+  const [editingEnvio, setEditingEnvio] = useState(null);
 
   useEffect(() => {
     const loadEnvioDetails = async () => {
       try {
         setLoadingEnvio(true);
-        // Usa getEnvio en lugar de fetchEnvios
+        // Usa getEnvio para obtener un envío específico por ID
         const envioData = await getEnvio(parseInt(id));
         setEnvio(envioData);
       } catch (err) {
-        console.error('Error loading envio details:', err);
+        console.error("Error loading envio details:", err);
       } finally {
         setLoadingEnvio(false);
       }
     };
-  
+
     if (id) {
       loadEnvioDetails();
     }
   }, [id, getEnvio]);
 
-  const handlePrint = () => {
-    window.print();
+  const handlePrint = async () => {
+    try {
+      setLoadingEnvio(true);
+      console.log("Iniciando generación de acta para envío:", id);
+
+      // Asegúrate de que la URL sea correcta
+      const url = `/api/envios/${id}/acta-entrega/`;
+      console.log("URL:", url);
+
+      const response = await api.get(url, {
+        responseType: "blob",
+      });
+
+      console.log("Respuesta recibida, status:", response.status);
+
+      if (!response.data) {
+        throw new Error("No se recibieron datos del servidor");
+      }
+
+      const blob = new Blob([response.data], { type: "application/pdf" });
+      const urlObject = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+
+      link.href = urlObject;
+      link.download = `acta_entrega_${envio.numero_guia}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+
+      // Limpieza
+      window.URL.revokeObjectURL(urlObject);
+      document.body.removeChild(link);
+
+      setLoadingEnvio(false);
+    } catch (err) {
+      console.error("Error completo al generar acta:", err);
+      console.error("Response data:", err.response?.data);
+      console.error("Status:", err.response?.status);
+      console.error("Headers:", err.response?.headers);
+
+      setLoadingEnvio(false);
+      alert(
+        "Error al generar el acta de entrega. Verifica la consola para más detalles."
+      );
+    }
   };
 
   const handleEdit = () => {
-    navigate(`/envios/editar/${id}`);
+    setEditingEnvio(envio);
+    setOpenEditModal(true);
+  };
+
+  const handleSubmitEdit = async (payload, editingId) => {
+    try {
+      await actualizarEnvio(editingId, payload);
+      const data = await fetchEnvios({ id: parseInt(id) });
+      if (data.results && data.results.length > 0) {
+        setEnvio(data.results[0]);
+      } else if (Array.isArray(data) && data.length > 0) {
+        setEnvio(data[0]);
+      }
+      setOpenEditModal(false);
+    } catch (err) {
+      console.error("Error updating envio:", err);
+    }
   };
 
   const handleBack = () => {
@@ -180,9 +262,14 @@ export default function EnvioDetailPage() {
             <div className="flex items-center gap-3">
               <button
                 onClick={handlePrint}
-                className="flex items-center gap-2 px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">
-                <RiPrinterLine className="text-lg" />
-                <span>Imprimir</span>
+                disabled={loadingEnvio}
+                className="flex items-center gap-2 px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 transition-colors">
+                {loadingEnvio ? (
+                  <RiLoader4Line className="text-lg animate-spin" />
+                ) : (
+                  <RiPrinterLine className="text-lg" />
+                )}
+                <span>{loadingEnvio ? "Generando..." : "Imprimir Acta"}</span>
               </button>
 
               {isAdmin && (
@@ -433,6 +520,16 @@ export default function EnvioDetailPage() {
           </div>
         </div>
       </div>
+
+      {/* Modal de edición */}
+      {openEditModal && (
+        <EnvioFormModal
+          open={openEditModal}
+          onClose={() => setOpenEditModal(false)}
+          onSubmit={handleSubmitEdit}
+          editing={editingEnvio}
+        />
+      )}
 
       {/* Estilos para impresión */}
       <style>{`

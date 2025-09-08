@@ -18,6 +18,9 @@ from reportlab.lib.enums import TA_CENTER
 from rest_framework.response import Response
 from rest_framework import status, decorators
 
+from django.db.models import Q
+from django.utils import timezone
+from datetime import timedelta, datetime
 
 
 class ProductoViewSet(viewsets.ModelViewSet):
@@ -46,6 +49,72 @@ class CargaViewSet(viewsets.ModelViewSet):
     serializer_class = CargaSerializer
     permission_classes = [IsAdminRole]
     parser_classes = [JSONParser, MultiPartParser, FormParser]
+    
+    def get_queryset(self):
+        """Filtra cargas por búsqueda, cliente, proveedor, y fechas"""
+        queryset = super().get_queryset()
+        
+        # Obtener parámetros de filtro
+        search = self.request.query_params.get('search')
+        cliente_id = self.request.query_params.get('cliente_id')
+        proveedor_id = self.request.query_params.get('proveedor_id')
+        estado = self.request.query_params.get('estado')
+        fecha_rango = self.request.query_params.get('fecha_rango')
+        fecha_inicio = self.request.query_params.get('fecha_inicio')
+        fecha_fin = self.request.query_params.get('fecha_fin')
+        
+        # Aplicar filtros básicos primero
+        if cliente_id:
+            queryset = queryset.filter(cliente_id=cliente_id)
+        
+        if proveedor_id:
+            queryset = queryset.filter(proveedor_id=proveedor_id)
+        
+        if estado:
+            queryset = queryset.filter(estado=estado)
+        
+        # Filtro de búsqueda
+        if search:
+            queryset = queryset.filter(
+                Q(remision__icontains=search) |
+                Q(cliente__nombre__icontains=search) |
+                Q(proveedor__nombre__icontains=search) |
+                Q(items__producto__nombre__icontains=search) |
+                Q(items__producto__sku__icontains=search)
+            ).distinct()
+        
+        # Filtros de fecha
+        now = timezone.now()
+        if fecha_rango:
+            if fecha_rango == 'hoy':
+                today = now.date()
+                queryset = queryset.filter(created_at__date=today)
+            elif fecha_rango == 'ultima_semana':
+                week_ago = now - timedelta(days=7)
+                queryset = queryset.filter(created_at__gte=week_ago)
+            elif fecha_rango == 'ultimo_mes':
+                month_ago = now - timedelta(days=30)
+                queryset = queryset.filter(created_at__gte=month_ago)
+            elif fecha_rango == 'ultimo_ano':
+                year_ago = now - timedelta(days=365)
+                queryset = queryset.filter(created_at__gte=year_ago)
+        
+        # Filtro de fecha personalizado
+        if fecha_inicio and fecha_fin:
+            try:
+                start_date = datetime.strptime(fecha_inicio, '%Y-%m-%d')
+                end_date = datetime.strptime(fecha_fin, '%Y-%m-%d')
+                # Ajustar end_date para incluir todo el día
+                end_date = end_date.replace(hour=23, minute=59, second=59)
+                queryset = queryset.filter(
+                    created_at__range=(start_date, end_date)
+                )
+            except ValueError:
+                # Si las fechas no son válidas, ignorar el filtro
+                pass
+        
+        return queryset
+    
     
     @decorators.action(detail=True, methods=['post'])
     def generar_unidades(self, request, pk=None):

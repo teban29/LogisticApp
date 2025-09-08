@@ -30,24 +30,53 @@ export default function UserFormModal({
   editingUser,
 }) {
   const [form, setForm] = useState(initial);
+  const [hasChanges, setHasChanges] = useState(false);
   const isEdit = Boolean(editingUser?.id);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
   useEffect(() => {
-    if (isEdit) {
+    if (open && isEdit && editingUser) {
       setForm({
+        username: editingUser.username || "",
+        nombre: editingUser.nombre || "",
+        apellido: editingUser.apellido || "",
+        rol: editingUser.rol || "",
+        password: "", // Siempre vacío en edición
+        is_active: editingUser.is_active ?? true,
+      });
+    } else if (open && !isEdit) {
+      setForm(initial);
+    }
+  }, [open, isEdit, editingUser]);
+
+  useEffect(() => {
+    if (open) {
+      const initialForm = isEdit ? {
         username: editingUser.username || "",
         nombre: editingUser.nombre || "",
         apellido: editingUser.apellido || "",
         rol: editingUser.rol || "",
         password: "",
         is_active: editingUser.is_active ?? true,
-      });
-    } else {
-      setForm(initial);
+      } : initial;
+
+      // Función para comparar si hay cambios
+      const checkForChanges = () => {
+        const currentForm = { ...form };
+        // Para edición, no comparamos el username ya que no se puede modificar
+        if (isEdit) {
+          delete currentForm.username;
+          const compareForm = { ...initialForm };
+          delete compareForm.username;
+          return JSON.stringify(currentForm) !== JSON.stringify(compareForm);
+        }
+        return JSON.stringify(currentForm) !== JSON.stringify(initialForm);
+      };
+
+      setHasChanges(checkForChanges());
     }
-  }, [editingUser, open, isEdit]);
+  }, [form, open, isEdit, editingUser]);
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
@@ -69,6 +98,14 @@ export default function UserFormModal({
       );
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleClose = () => {
+    if (hasChanges && !saving) {
+      onClose();
+    } else {
+      onClose();
     }
   };
 
@@ -128,7 +165,9 @@ export default function UserFormModal({
       open={open}
       onClose={onClose}
       title={isEdit ? "Editar usuario" : "Crear usuario"}
-      size="md">
+      size="md"
+      preventClose={hasChanges && !saving}
+      closeConfirmationMessage="¿Está seguro que desea salir? Se perderán los cambios no guardados.">
       {error && (
         <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-700 rounded-lg flex items-center">
           <RiCloseLine className="text-lg mr-2 flex-shrink-0" />
