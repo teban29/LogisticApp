@@ -181,6 +181,51 @@ export default function EnvioDetailPage() {
     }
   };
 
+  const handlePrintBilling = async () => {
+    try {
+      setLoadingEnvio(true);
+      console.log("Iniciando generación de cuenta de cobro para envío:", id);
+
+      const url = `/api/envios/${id}/cuenta-cobro/`;
+      console.log("URL:", url);
+
+      const response = await api.get(url, {
+        responseType: "blob",
+      });
+
+      console.log("Respuesta recibida, status:", response.status);
+
+      if (!response.data) {
+        throw new Error("No se recibieron datos del servidor");
+      }
+
+      const blob = new Blob([response.data], { type: "application/pdf" });
+      const urlObject = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+
+      link.href = urlObject;
+      link.download = `cuenta_cobro_${envio.numero_guia}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+
+      // Limpieza
+      window.URL.revokeObjectURL(urlObject);
+      document.body.removeChild(link);
+
+      setLoadingEnvio(false);
+    } catch (err) {
+      console.error("Error completo al generar cuenta de cobro:", err);
+      console.error("Response data:", err.response?.data);
+      console.error("Status:", err.response?.status);
+      console.error("Headers:", err.response?.headers);
+
+      setLoadingEnvio(false);
+      alert(
+        "Error al generar la cuenta de cobro. Verifica la consola para más detalles."
+      );
+    }
+  };
+
   const handleEdit = () => {
     setEditingEnvio(envio);
     setOpenEditModal(true);
@@ -263,13 +308,27 @@ export default function EnvioDetailPage() {
               <button
                 onClick={handlePrint}
                 disabled={loadingEnvio}
-                className="flex items-center gap-2 px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 transition-colors">
+                title="Generar e imprimir acta de entrega del envío"
+                className="flex items-center gap-2 px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-300 disabled:opacity-50 transition-colors">
                 {loadingEnvio ? (
                   <RiLoader4Line className="text-lg animate-spin" />
                 ) : (
                   <RiPrinterLine className="text-lg" />
                 )}
                 <span>{loadingEnvio ? "Generando..." : "Imprimir Acta"}</span>
+              </button>
+
+              <button
+                onClick={handlePrintBilling}
+                disabled={loadingEnvio}
+                title="Generar e imprimir cuenta de cobro con valores unitarios y total"
+                className="flex items-center gap-2 px-4 py-2 text-green-700 bg-green-100 border border-green-300 rounded-lg hover:bg-green-200 disabled:opacity-50 transition-colors">
+                {loadingEnvio ? (
+                  <RiLoader4Line className="text-lg animate-spin" />
+                ) : (
+                  <RiMoneyDollarCircleLine className="text-lg" />
+                )}
+                <span>{loadingEnvio ? "Generando..." : "Cuenta de Cobro"}</span>
               </button>
 
               {isAdmin && (
@@ -492,9 +551,28 @@ export default function EnvioDetailPage() {
 
                   <button
                     onClick={handlePrint}
-                    className="w-full flex items-center gap-2 px-4 py-3 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors">
-                    <RiPrinterLine className="text-lg" />
-                    <span>Imprimir Detalles</span>
+                    disabled={loadingEnvio}
+                    title="Generar e imprimir acta de entrega del envío"
+                    className="w-full flex items-center gap-2 px-4 py-3 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-300 disabled:opacity-50 transition-colors">
+                    {loadingEnvio ? (
+                      <RiLoader4Line className="text-lg animate-spin" />
+                    ) : (
+                      <RiPrinterLine className="text-lg" />
+                    )}
+                    <span>{loadingEnvio ? "Generando..." : "Imprimir Acta"}</span>
+                  </button>
+
+                  <button
+                    onClick={handlePrintBilling}
+                    disabled={loadingEnvio}
+                    title="Generar e imprimir cuenta de cobro con valores unitarios y total"
+                    className="w-full flex items-center gap-2 px-4 py-3 bg-green-100 text-green-700 rounded-lg hover:bg-green-200 disabled:opacity-50 transition-colors">
+                    {loadingEnvio ? (
+                      <RiLoader4Line className="text-lg animate-spin" />
+                    ) : (
+                      <RiMoneyDollarCircleLine className="text-lg" />
+                    )}
+                    <span>{loadingEnvio ? "Generando..." : "Cuenta de Cobro"}</span>
                   </button>
                 </div>
               </div>
