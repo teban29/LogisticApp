@@ -12,7 +12,9 @@ import {
   RiSaveLine,
   RiLoader4Line,
   RiInformationLine,
+  RiBuildingLine,
 } from "react-icons/ri";
+import { listClientes } from "../api/users"; // Importar la nueva función
 
 const initial = {
   username: "",
@@ -21,6 +23,7 @@ const initial = {
   rol: "",
   password: "",
   is_active: true,
+  cliente: null, // Nuevo campo
 };
 
 export default function UserFormModal({
@@ -34,6 +37,28 @@ export default function UserFormModal({
   const isEdit = Boolean(editingUser?.id);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [clientes, setClientes] = useState([]);
+  const [loadingClientes, setLoadingClientes] = useState(false);
+
+  // Cargar clientes cuando el modal se abre
+  useEffect(() => {
+    if (open) {
+      loadClientes();
+    }
+  }, [open]);
+
+  const loadClientes = async () => {
+    setLoadingClientes(true);
+    try {
+      const data = await listClientes({ is_active: true });
+      setClientes(data.results || data);
+    } catch (error) {
+      console.error("Error loading clients:", error);
+      setClientes([]);
+    } finally {
+      setLoadingClientes(false);
+    }
+  };
 
   useEffect(() => {
     if (open && isEdit && editingUser) {
@@ -44,6 +69,7 @@ export default function UserFormModal({
         rol: editingUser.rol || "",
         password: "", // Siempre vacío en edición
         is_active: editingUser.is_active ?? true,
+        cliente: editingUser.cliente || null, // Nuevo campo
       });
     } else if (open && !isEdit) {
       setForm(initial);
@@ -52,19 +78,20 @@ export default function UserFormModal({
 
   useEffect(() => {
     if (open) {
-      const initialForm = isEdit ? {
-        username: editingUser.username || "",
-        nombre: editingUser.nombre || "",
-        apellido: editingUser.apellido || "",
-        rol: editingUser.rol || "",
-        password: "",
-        is_active: editingUser.is_active ?? true,
-      } : initial;
+      const initialForm = isEdit
+        ? {
+            username: editingUser.username || "",
+            nombre: editingUser.nombre || "",
+            apellido: editingUser.apellido || "",
+            rol: editingUser.rol || "",
+            password: "",
+            is_active: editingUser.is_active ?? true,
+            cliente: editingUser.cliente || null,
+          }
+        : initial;
 
-      // Función para comparar si hay cambios
       const checkForChanges = () => {
         const currentForm = { ...form };
-        // Para edición, no comparamos el username ya que no se puede modificar
         if (isEdit) {
           delete currentForm.username;
           const compareForm = { ...initialForm };
@@ -83,18 +110,43 @@ export default function UserFormModal({
     setForm((f) => ({ ...f, [name]: type === "checkbox" ? checked : value }));
   };
 
+  const handleClienteChange = (clienteId) => {
+    const cliente = clienteId
+      ? clientes.find((c) => c.id === parseInt(clienteId))
+      : null;
+    setForm((f) => ({ ...f, cliente: cliente?.id || null }));
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
+
+    // Validación específica para rol cliente
+    if (form.rol === "cliente" && !form.cliente) {
+      setError("Los usuarios cliente deben tener un cliente asignado");
+      return;
+    }
+
+    // Validación: si no es cliente, no debe tener cliente asignado
+    if (form.rol !== "cliente" && form.cliente) {
+      setError("Solo los usuarios cliente pueden tener un cliente asignado");
+      return;
+    }
+
     setSaving(true);
     setError("");
     try {
       const payload = { ...form };
+      // Preparar payload para API
+      if (payload.cliente === null) {
+        delete payload.cliente;
+      }
       if (isEdit && !payload.password) delete payload.password;
       await onSubmit(payload);
       onClose();
     } catch (err) {
       setError(
-        "No se pudo guardar el usuario. Por favor, verifique los datos e intente nuevamente."
+        err.response?.data?.detail ||
+          "No se pudo guardar el usuario. Por favor, verifique los datos e intente nuevamente."
       );
     } finally {
       setSaving(false);
@@ -109,23 +161,6 @@ export default function UserFormModal({
     }
   };
 
-  // Iconos para diferentes roles
-  const getRoleIcon = (role) => {
-    switch (role) {
-      case "admin":
-        return <RiShieldUserLine className="text-purple-600" />;
-      case "conductor":
-        return <RiUserSettingsLine className="text-orange-600" />;
-      case "operador":
-        return <RiUserSettingsLine className="text-blue-600" />;
-      case "cliente":
-        return <RiUserLine className="text-green-600" />;
-      default:
-        return <RiUserLine className="text-gray-600" />;
-    }
-  };
-
-  // Configuración para cada rol
   const getRoleConfig = (role) => {
     switch (role) {
       case "admin":
@@ -165,7 +200,7 @@ export default function UserFormModal({
       open={open}
       onClose={onClose}
       title={isEdit ? "Editar usuario" : "Crear usuario"}
-      size="md"
+      size="lg" // Cambiado a lg para más espacio
       preventClose={hasChanges && !saving}
       closeConfirmationMessage="¿Está seguro que desea salir? Se perderán los cambios no guardados.">
       {error && (
@@ -247,6 +282,48 @@ export default function UserFormModal({
               })}
             </div>
           </div>
+
+          {/* Selector de Cliente (solo visible cuando rol es 'cliente') */}
+          {form.rol === "cliente" && (
+            <div className="md:col-span-2">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Cliente Asignado <span className="text-red-500">*</span>
+              </label>
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <RiBuildingLine className="h-5 w-5 text-gray-400" />
+                </div>
+                <select
+                  className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-colors appearance-none"
+                  value={form.cliente || ""}
+                  onChange={(e) => handleClienteChange(e.target.value)}
+                  required={form.rol === "cliente"}
+                  disabled={loadingClientes}>
+                  <option value="">Seleccionar cliente...</option>
+                  {loadingClientes ? (
+                    <option value="" disabled>
+                      Cargando clientes...
+                    </option>
+                  ) : (
+                    clientes.map((cliente) => (
+                      <option key={cliente.id} value={cliente.id}>
+                        {cliente.nombre}
+                      </option>
+                    ))
+                  )}
+                </select>
+                {loadingClientes && (
+                  <div className="absolute inset-y-0 right-0 pr-3 flex items-center">
+                    <RiLoader4Line className="animate-spin text-gray-400" />
+                  </div>
+                )}
+              </div>
+              <p className="text-xs text-gray-500 mt-1 flex items-center gap-1">
+                <RiInformationLine className="flex-shrink-0" />
+                Seleccione el cliente que este usuario podrá gestionar
+              </p>
+            </div>
+          )}
 
           {/* Nombre */}
           <div>

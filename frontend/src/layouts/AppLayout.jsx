@@ -37,10 +37,6 @@ export default function AppLayout() {
           </div>
           
           <div className="flex items-center gap-2">
-            <button className="w-10 h-10 rounded-lg flex items-center justify-center text-gray-600 hover:bg-gray-100 transition-colors">
-              <RiNotification3Line className="text-xl" />
-              <span className="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full"></span>
-            </button>
             {user && (
               <div className="flex items-center gap-2">
                 <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-600 to-blue-800 flex items-center justify-center text-white font-medium text-xs">

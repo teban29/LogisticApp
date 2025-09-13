@@ -57,6 +57,34 @@ class CargaSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ['estado', 'created_at', 'updated_at']
 
+    def validate_cliente(self, value):
+        """Validación adicional para usuarios cliente"""
+        request = self.context.get('request')
+        if request and request.user.rol == 'cliente':
+            # Usuarios cliente solo pueden asignar su propio cliente
+            if value != request.user.cliente:
+                raise serializers.ValidationError("Solo puede crear cargas para su cliente asignado")
+        
+        if not value.is_active:
+            raise serializers.ValidationError("El cliente no está activo")
+        
+        return value
+
+    def validate(self, attrs):
+        """Validación general para operaciones de cliente"""
+        request = self.context.get('request')
+        
+        if request and request.user.rol == 'cliente':
+            # Para operaciones de update, verificar que la carga pertenece al cliente
+            if self.instance and self.instance.cliente != request.user.cliente:
+                raise serializers.ValidationError("No tiene permisos para modificar esta carga")
+            
+            # Para create, asegurar que el cliente es el asignado al usuario
+            if not self.instance and attrs.get('cliente') != request.user.cliente:
+                raise serializers.ValidationError("Solo puede crear cargas para su cliente asignado")
+        
+        return attrs
+
     def get_items(self, obj):
         return [
             {

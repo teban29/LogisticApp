@@ -31,13 +31,30 @@ export const router = createBrowserRouter([
             element: <RoleProtected allowedRoles={["admin"]} />,
             children: [{ path: "/usuarios", element: <Users /> }],
           },
-          { path: "/clientes", element: <Clients /> },
-          { path: "/proveedores", element: <Providers /> },
-          { path: "/cargas", element: <Cargas /> },
-          { path: "/cargas/:id", element: <CargaDetailPage /> },
-          { path: "/envios", element: <Envios /> },
-          { path: "/envios/:id", element: <EnvioDetailPage /> },
-          { path: "/configuracion", element: <Configuracion /> },
+          { 
+            element: <RoleProtected allowedRoles={["admin", "operador"]} />,
+            children: [{ path: "/clientes", element: <Clients /> }],
+          },
+          { 
+            element: <RoleProtected allowedRoles={["admin", "operador","conductor"]} />,
+            children: [{ path: "/proveedores", element: <Providers /> }],
+          },
+          { 
+            element: <RoleProtected allowedRoles={["admin", "operador", "cliente", "conductor"]} />,
+            children: [{ path: "/cargas", element: <Cargas /> }],
+          },
+          { 
+            element: <RoleProtected allowedRoles={["admin", "operador", "cliente", "conductor"]} />,
+            children: [{ path: "/cargas/:id", element: <CargaDetailPage /> }],
+          },
+          { 
+            element: <RoleProtected allowedRoles={["admin", "cliente", "conductor"]} />,
+            children: [{ path: "/envios", element: <Envios /> }],
+          },
+          { 
+            element: <RoleProtected allowedRoles={["admin", "cliente", "conductor"]} />,
+            children: [{ path: "/envios/:id", element: <EnvioDetailPage /> }],
+          },
         ],
       },
     ],

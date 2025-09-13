@@ -28,6 +28,7 @@ from .permissions import IsAdminRole
 from .serializers import EnvioSerializer, AgregarItemSerializer, EnvioItemSerializer, EstadoVerificacionSerializer, EscaneoEntregaSerializer
 from cargas.models import Unidad, Carga, CargaItem
 from partners.models import Cliente
+from accounts.permissions import EsClienteYTieneCliente, SoloSuCliente
 
 class EnvioViewSet(viewsets.ModelViewSet):
     queryset = Envio.objects.select_related('cliente').prefetch_related(
@@ -35,27 +36,77 @@ class EnvioViewSet(viewsets.ModelViewSet):
     ).order_by('-created_at')
     
     serializer_class = EnvioSerializer
-    permission_classes = [IsAdminRole]
+    
+    def get_permissions(self):
+        """
+        Permisos diferenciados por acción:
+        - List/Retrieve: Admin o cliente con cliente asignado
+        - Create/Update/Delete: Solo admin
+        """
+        if self.action in ['list', 'retrieve']:
+            permission_classes = [EsClienteYTieneCliente | IsAdminRole]
+        else:
+            permission_classes = [IsAdminRole]
+        return [permission() for permission in permission_classes]
     
     def get_queryset(self):
-        """Filtra envíos por cliente si se especifica"""
+        """Filtra envíos por usuario, cliente, estado y búsqueda"""
         queryset = super().get_queryset()
+        
+        print(f"User: {self.request.user}")
+        print(f"User rol: {self.request.user.rol}")
+        print(f"User cliente: {self.request.user.cliente}")
+        print(f"User cliente id: {self.request.user.cliente.id if self.request.user.cliente else None}")
+        
+        # FILTRO AUTOMÁTICO POR CLIENTE PARA USUARIOS CLIENTE
+        if self.request.user.rol == 'cliente' and self.request.user.cliente:
+            queryset = queryset.filter(cliente=self.request.user.cliente.id)
+        
+        # Obtener parámetros de filtro
         cliente_id = self.request.query_params.get('cliente_id')
         estado = self.request.query_params.get('estado')
         search = self.request.query_params.get('search')
         
-        if cliente_id:
+        # RESTRICCIÓN: Usuarios cliente no pueden filtrar por otros clientes
+        if self.request.user.rol == 'cliente' and cliente_id:
+            # Ignorar filtro de cliente_id si el usuario es cliente
+            # para evitar que filtren por otros clientes
+            pass
+        elif cliente_id:
             queryset = queryset.filter(cliente_id=cliente_id)
+        
         if estado:
             queryset = queryset.filter(estado=estado)
+        
         if search:
-            queryset = queryset.filter(Q(numero_guia__icontains=search) | Q(cliente__nombre__icontains=search) | Q(conductor__icontains=search) | Q(placa_vehiculo__icontains=search))
+            queryset = queryset.filter(
+                Q(numero_guia__icontains=search) | 
+                Q(cliente__nombre__icontains=search) | 
+                Q(conductor__icontains=search) | 
+                Q(placa_vehiculo__icontains=search)
+            )
         
         # Para tests, desactivar paginación
         if getattr(self, 'swagger_fake_view', False) or self.request and self.request.method == 'GET' and 'test' in self.request.META.get('HTTP_USER_AGENT', ''):
             self.pagination_class = None
         
         return queryset
+    
+    def list(self, request, *args, **kwargs):
+        """Sobrescribir list para agregar metadata sobre filtros aplicados"""
+        response = super().list(request, *args, **kwargs)
+        
+        # Agregar información sobre el filtro automático aplicado
+        if request.user.rol == 'cliente' and request.user.cliente:
+            response.data['filtro_automatico'] = {
+                'cliente': {
+                    'id': request.user.cliente.id,
+                    'nombre': request.user.cliente.nombre
+                },
+                'mensaje': 'Mostrando solo los envíos de su cliente asignado'
+            }
+        
+        return response
     @action(detail=True, methods=['post'])
     def agregar_item(self, request, pk=None):
         """Agrega un item individual al envío mediante código de barras"""

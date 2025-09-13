@@ -199,7 +199,7 @@ const VerificacionEntregaModal = ({
 
       {/* Scanner input */}
       <div className="mb-6">
-        <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center gap-2">
+        <label className="flex items-center gap-2 text-sm font-medium text-gray-700 mb-2">
           <RiQrScanLine className="text-blue-500" />
           Escanear código de barras
         </label>

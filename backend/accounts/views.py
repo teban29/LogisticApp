@@ -23,4 +23,11 @@ class MeView(APIView):
     
     def get(self, request):
         serializer = UsuarioCRUDSerializer(request.user)
-        return Response(serializer.data)
+        data = serializer.data
+        # Agregar información adicional del cliente si existe
+        if request.user.cliente:
+            data['cliente_info'] = {
+                'id': request.user.cliente.id,
+                'nombre': request.user.cliente.nombre
+            }
+        return Response(data)

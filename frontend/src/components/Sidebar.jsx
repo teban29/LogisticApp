@@ -29,7 +29,7 @@ export default function Sidebar({ open, setOpen }) {
   };
 
   const items = [
-    { to: '/', label: 'Dashboard', icon: <RiDashboardLine /> }, // visible para todos
+    { to: '/', label: 'Dashboard', icon: <RiDashboardLine />, allowedRoles: ['admin', 'operador', 'conductor'] },
     {
       to: '/clientes',
       label: 'Clientes',
@@ -46,7 +46,7 @@ export default function Sidebar({ open, setOpen }) {
       to: '/cargas',
       label: 'Cargas',
       icon: <RiArchive2Line />,
-      allowedRoles: ['admin', 'operador'],
+      allowedRoles: ['admin', 'operador', 'cliente'],
     },
     {
       to: '/envios',
@@ -59,12 +59,6 @@ export default function Sidebar({ open, setOpen }) {
       label: 'Usuarios',
       icon: <RiUser3Line />,
       allowedRoles: ['admin'], // solo admins
-    },
-    {
-      to: '/configuracion',
-      label: 'Configuración',
-      icon: <RiSettings3Line />,
-      allowedRoles: ['admin'],
     },
   ];
 

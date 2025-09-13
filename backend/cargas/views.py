@@ -7,6 +7,9 @@ from .serializers import CargaSerializer, UnidadSerializer, ProductoSerializer
 from .permissions import IsAdminRole
 from .services import generar_unidades_para_carga
 
+from .filters import CargaFilter
+from accounts.permissions import EsClienteYTieneCliente, SoloSuCliente
+
 from io import BytesIO
 from reportlab.pdfgen import canvas
 from reportlab.lib.pagesizes import mm, landscape
@@ -38,7 +41,7 @@ class CargaViewSet(viewsets.ModelViewSet):
     """
     ViewSet para gestionar cargas del sistema.
     Incluye funcionalidades para generar unidades y etiquetas.
-    Solo accesible por usuarios con rol de administrador.
+    Accesible por administradores y usuarios cliente (solo sus cargas).
     """
     queryset = (
         Carga.objects
@@ -47,12 +50,27 @@ class CargaViewSet(viewsets.ModelViewSet):
         .order_by('-created_at')
     )
     serializer_class = CargaSerializer
-    permission_classes = [IsAdminRole]
     parser_classes = [JSONParser, MultiPartParser, FormParser]
     
+    def get_permissions(self):
+        """
+        Permisos diferenciados por acción:
+        - List/Retrieve: Admin o cliente con cliente asignado
+        - Create/Update/Delete: Solo admin
+        """
+        if self.action in ['list', 'retrieve']:
+            permission_classes = [EsClienteYTieneCliente | IsAdminRole]
+        else:
+            permission_classes = [IsAdminRole]
+        return [permission() for permission in permission_classes]
+    
     def get_queryset(self):
-        """Filtra cargas por búsqueda, cliente, proveedor, y fechas"""
+        """Filtra cargas por usuario, búsqueda, cliente, proveedor, y fechas"""
         queryset = super().get_queryset()
+        
+        # FILTRO AUTOMÁTICO POR CLIENTE PARA USUARIOS CLIENTE
+        if self.request.user.rol == 'cliente' and self.request.user.cliente:
+            queryset = queryset.filter(cliente=self.request.user.cliente)
         
         # Obtener parámetros de filtro
         search = self.request.query_params.get('search')
@@ -63,8 +81,12 @@ class CargaViewSet(viewsets.ModelViewSet):
         fecha_inicio = self.request.query_params.get('fecha_inicio')
         fecha_fin = self.request.query_params.get('fecha_fin')
         
-        # Aplicar filtros básicos primero
-        if cliente_id:
+        # RESTRICCIÓN: Usuarios cliente no pueden filtrar por otros clientes
+        if self.request.user.rol == 'cliente' and cliente_id:
+            # Ignorar filtro de cliente_id si el usuario es cliente
+            # para evitar que filtren por otros clientes
+            pass
+        elif cliente_id:
             queryset = queryset.filter(cliente_id=cliente_id)
         
         if proveedor_id:
@@ -114,6 +136,22 @@ class CargaViewSet(viewsets.ModelViewSet):
                 pass
         
         return queryset
+    
+    def list(self, request, *args, **kwargs):
+        """Sobrescribir list para agregar metadata sobre filtros aplicados"""
+        response = super().list(request, *args, **kwargs)
+        
+        # Agregar información sobre el filtro automático aplicado
+        if request.user.rol == 'cliente' and request.user.cliente:
+            response.data['filtro_automatico'] = {
+                'cliente': {
+                    'id': request.user.cliente.id,
+                    'nombre': request.user.cliente.nombre
+                },
+                'mensaje': 'Mostrando solo las cargas de su cliente asignado'
+            }
+        
+        return response
     
     
     @decorators.action(detail=True, methods=['post'])
