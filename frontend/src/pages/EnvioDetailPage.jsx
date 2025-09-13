@@ -3,6 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { useEnvios } from "../hooks/useEnvios";
 import { useAuth } from "../context/AuthContext";
 import EnvioFormModal from "../components/EnvioFormModal";
+import VerificacionEntregaModal from "../components/VerificacionEntregaModal";
 import api from "../api/axios";
 import {
   RiTruckLine,
@@ -20,6 +21,7 @@ import {
   RiErrorWarningLine,
   RiPrinterLine,
   RiFileTextLine,
+  RiCheckLine,
 } from "react-icons/ri";
 import { getEnvio } from "../api/envios";
 
@@ -116,6 +118,8 @@ export default function EnvioDetailPage() {
   const [openEditModal, setOpenEditModal] = useState(false);
   const [editingEnvio, setEditingEnvio] = useState(null);
 
+  const [openVerificacionModal, setOpenVerificacionModal] = useState(false);
+
   useEffect(() => {
     const loadEnvioDetails = async () => {
       try {
@@ -134,6 +138,27 @@ export default function EnvioDetailPage() {
       loadEnvioDetails();
     }
   }, [id, getEnvio]);
+
+  const reloadEnvioDetails = async () => {
+    try {
+      setLoadingEnvio(true);
+      const envioData = await getEnvio(parseInt(id));
+      setEnvio(envioData);
+    } catch (err) {
+      console.error("Error reloading envio details:", err);
+    } finally {
+      setLoadingEnvio(false);
+    }
+  };
+
+  const handleVerificarEntrega = () => {
+    if (!["pendiente", "en_transito"].includes(envio.estado)) {
+      alert("Solo se pueden verificar envíos pendientes o en tránsito");
+      return;
+    }
+
+    setOpenVerificacionModal(true);
+  };
 
   const handlePrint = async () => {
     try {
@@ -305,6 +330,16 @@ export default function EnvioDetailPage() {
             </div>
 
             <div className="flex items-center gap-3">
+              {["pendiente", "en_transito"].includes(envio.estado) && (
+                <button
+                  onClick={handleVerificarEntrega}
+                  title="Verificar entrega escaneando items"
+                  className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors">
+                  <RiCheckLine className="text-lg" />
+                  <span>Verificar Entrega</span>
+                </button>
+              )}
+
               <button
                 onClick={handlePrint}
                 disabled={loadingEnvio}
@@ -542,6 +577,15 @@ export default function EnvioDetailPage() {
                 <h3 className="font-semibold text-gray-900 mb-4">Acciones</h3>
 
                 <div className="space-y-3">
+                  {["pendiente", "en_transito"].includes(envio.estado) && (
+                    <button
+                      onClick={handleVerificarEntrega}
+                      className="w-full flex items-center gap-2 px-4 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors">
+                      <RiCheckLine className="text-lg" />
+                      <span>Verificar Entrega</span>
+                    </button>
+                  )}
+
                   <button
                     onClick={handleEdit}
                     className="w-full flex items-center gap-2 px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
@@ -559,7 +603,9 @@ export default function EnvioDetailPage() {
                     ) : (
                       <RiPrinterLine className="text-lg" />
                     )}
-                    <span>{loadingEnvio ? "Generando..." : "Imprimir Acta"}</span>
+                    <span>
+                      {loadingEnvio ? "Generando..." : "Imprimir Acta"}
+                    </span>
                   </button>
 
                   <button
@@ -572,7 +618,9 @@ export default function EnvioDetailPage() {
                     ) : (
                       <RiMoneyDollarCircleLine className="text-lg" />
                     )}
-                    <span>{loadingEnvio ? "Generando..." : "Cuenta de Cobro"}</span>
+                    <span>
+                      {loadingEnvio ? "Generando..." : "Cuenta de Cobro"}
+                    </span>
                   </button>
                 </div>
               </div>
@@ -608,6 +656,13 @@ export default function EnvioDetailPage() {
           editing={editingEnvio}
         />
       )}
+
+      <VerificacionEntregaModal
+        envio={envio}
+        isOpen={openVerificacionModal}
+        onClose={() => setOpenVerificacionModal(false)}
+        onEntregaCompletada={reloadEnvioDetails}
+      />
 
       {/* Estilos para impresión */}
       <style>{`

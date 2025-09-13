@@ -4,6 +4,7 @@ import EnvioFormModal from "../components/EnvioFormModal";
 import ConfirmDialog from "../components/ConfirmDialog";
 import { useAuth } from "../context/AuthContext";
 import EnvioDetailModal from "../components/EnvioDetailModal";
+import VerificacionEntregaModal from "../components/VerificacionEntregaModal"; // Importar el nuevo modal
 import { useNavigate } from "react-router-dom";
 import {
   RiAddLine,
@@ -24,7 +25,8 @@ import {
   RiTimeLine,
   RiCheckLine,
   RiRefreshLine,
-  RiFilterLine
+  RiFilterLine,
+  RiBarcodeLine // Nuevo icono para verificación
 } from "react-icons/ri";
 
 const ESTADOS_ENVIO = {
@@ -85,6 +87,10 @@ export default function Envios() {
   const [openDetail, setOpenDetail] = useState(false);
   const [selectedEnvio, setSelectedEnvio] = useState(null);
 
+  // Nuevos estados para verificación de entrega
+  const [openVerificacion, setOpenVerificacion] = useState(false);
+  const [envioVerificacion, setEnvioVerificacion] = useState(null);
+
   const pageSize = 10;
 
   // Debounce para la búsqueda
@@ -101,6 +107,18 @@ export default function Envios() {
   const handleViewDetail = (envio) => {
     setSelectedEnvio(envio);
     setOpenDetail(true);
+  };
+
+  // Nueva función para verificación de entrega
+  const handleVerificarEntrega = (envio) => {
+    // Validar que el envío esté en estado apropiado
+    if (!['pendiente', 'en_transito'].includes(envio.estado)) {
+      alert('Solo se pueden verificar envíos pendientes o en tránsito');
+      return;
+    }
+    
+    setEnvioVerificacion(envio);
+    setOpenVerificacion(true);
   };
 
   const fetchData = async () => {
@@ -476,6 +494,18 @@ export default function Envios() {
                           >
                             <RiEyeLine className="text-lg" />
                           </button>
+                          
+                          {/* Botón de verificación de entrega */}
+                          {['pendiente', 'en_transito'].includes(envio.estado) && (
+                            <button
+                              onClick={() => handleVerificarEntrega(envio)}
+                              className="p-2 text-gray-500 hover:text-green-600 hover:bg-green-50 rounded-lg transition-colors"
+                              title="Verificar entrega"
+                            >
+                              <RiBarcodeLine className="text-lg" />
+                            </button>
+                          )}
+                          
                           {isAdmin && (
                             <button
                               onClick={() => handleEdit(envio)}
@@ -485,6 +515,7 @@ export default function Envios() {
                               <RiEditLine className="text-lg" />
                             </button>
                           )}
+                          
                           {isAdmin && envio.estado === "pendiente" && (
                             <button
                               onClick={() =>
@@ -496,6 +527,7 @@ export default function Envios() {
                               <RiCheckLine className="text-lg" />
                             </button>
                           )}
+                          
                           {isAdmin && envio.estado === "en_transito" && (
                             <button
                               onClick={() =>
@@ -581,6 +613,14 @@ export default function Envios() {
         open={openDetail}
         onClose={() => setOpenDetail(false)}
         envio={selectedEnvio}
+      />
+
+      {/* Modal de verificación de entrega */}
+      <VerificacionEntregaModal
+        envio={envioVerificacion}
+        isOpen={openVerificacion}
+        onClose={() => setOpenVerificacion(false)}
+        onEntregaCompletada={fetchData} // Recargar datos cuando se complete la entrega
       />
 
       {/* Modal de confirmación de eliminación */}

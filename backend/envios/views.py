@@ -23,9 +23,9 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 
 # Local imports
-from .models import Envio, EnvioItem
+from .models import Envio, EnvioItem, EscaneoEntrega
 from .permissions import IsAdminRole
-from .serializers import EnvioSerializer, AgregarItemSerializer, EnvioItemSerializer
+from .serializers import EnvioSerializer, AgregarItemSerializer, EnvioItemSerializer, EstadoVerificacionSerializer, EscaneoEntregaSerializer
 from cargas.models import Unidad, Carga, CargaItem
 from partners.models import Cliente
 
@@ -56,7 +56,7 @@ class EnvioViewSet(viewsets.ModelViewSet):
             self.pagination_class = None
         
         return queryset
-    @decorators.action(detail=True, methods=['post'])
+    @action(detail=True, methods=['post'])
     def agregar_item(self, request, pk=None):
         """Agrega un item individual al envío mediante código de barras"""
         envio = self.get_object()
@@ -110,7 +110,7 @@ class EnvioViewSet(viewsets.ModelViewSet):
         
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
     
-    @decorators.action(detail=True, methods=['delete'])
+    @action(detail=True, methods=['delete'])
     def remover_item(self, request, pk=None):
         """Remueve un item del envío"""
         envio = self.get_object()
@@ -138,7 +138,7 @@ class EnvioViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_404_NOT_FOUND
             )
     
-    @decorators.action(detail=False, methods=['get'], url_path='cargas-por-cliente')
+    @action(detail=False, methods=['get'], url_path='cargas-por-cliente')
     def cargas_por_cliente(self, request):
         """Obtiene las cargas disponibles para un cliente específico"""
         cliente_id = request.query_params.get('cliente_id')
@@ -748,6 +748,124 @@ class EnvioViewSet(viewsets.ModelViewSet):
         c.save()
         buffer.seek(0)
         return buffer
+    
+    @action(detail=True, methods=['get'], url_path='estado-verificacion')
+    def estado_verificacion(self, request, pk=None):
+        envio = self.get_object()
+        serializer = EstadoVerificacionSerializer(envio)
+        return Response(serializer.data)
+    
+    @action(detail=True, methods=['post'], url_path='escanear-item')
+    def escanear_item(self, request, pk=None):
+        """Escanea un item para verificación de entrega"""
+        envio = self.get_object()
+        
+        # Validar que el envío esté en estado pendiente o en tránsito
+        if envio.estado not in ['pendiente', 'en_transito']:
+            return Response(
+                {'error': 'Solo se pueden escanear items de envíos pendientes o en tránsito'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        serializer = EscaneoEntregaSerializer(data=request.data)
+        if serializer.is_valid():
+            codigo_barra = serializer.validated_data['codigo_barra']
+            escaneado_por = serializer.validated_data.get('escaneado_por', '')
+            
+            try:
+                # Buscar el item del envío por código de barras
+                item = EnvioItem.objects.select_related('unidad').get(
+                    envio=envio,
+                    unidad__codigo_barra=codigo_barra
+                )
+                
+                # Verificar si ya fue escaneado
+                if EscaneoEntrega.objects.filter(envio=envio, item=item).exists():
+                    return Response(
+                        {'warning': 'Item ya fue escaneado anteriormente'},
+                        status=status.HTTP_200_OK
+                    )
+                
+                # Registrar el escaneo
+                EscaneoEntrega.objects.create(
+                    envio=envio,
+                    item=item,
+                    escaneado_por=escaneado_por
+                )
+                
+                # Verificar si todos los items han sido escaneados
+                if envio.todos_items_verificados():
+                    envio.estado = 'entregado'
+                    envio.fecha_entrega_verificada = timezone.now()
+                    envio.save()
+                    
+                    # Liberar unidades (cambiar estado a despachada)
+                    unidades_ids = envio.items.values_list('unidad_id', flat=True)
+                    Unidad.objects.filter(id__in=unidades_ids).update(estado='despachada')
+                    
+                    return Response({
+                        'success': '¡Entrega completada! Todos los items verificados',
+                        'completado': True
+                    })
+                
+                return Response({
+                    'success': 'Item escaneado correctamente',
+                    'completado': False,
+                    'porcentaje': envio.porcentaje_verificacion()
+                })
+                
+            except EnvioItem.DoesNotExist:
+                return Response(
+                    {'error': 'El código de barras no pertenece a este envío'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+        
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+    @action(detail=True, methods=['post'], url_path='forzar-completar-entrega')
+    def forzar_completar_entrega(self, request, pk=None):
+        """Forza la finalización de la entrega (para casos excepcionales)"""
+        envio = self.get_object()
+        
+        if envio.estado not in ['pendiente', 'en_transito']:
+            return Response(
+                {'error': 'Solo se pueden completar envíos pendientes o en tránsito'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Cambiar estado a entregado
+        envio.estado = 'entregado'
+        envio.fecha_entrega_verificada = timezone.now()
+        envio.save()
+        
+        # Liberar unidades
+        unidades_ids = envio.items.values_list('unidad_id', flat=True)
+        Unidad.objects.filter(id__in=unidades_ids).update(estado='despachada')
+        
+        return Response({
+            'success': 'Entrega completada manualmente',
+            'completado': True
+        })
+    
+    @action(detail=True, methods=['get'], url_path='items-pendientes')
+    def items_pendientes(self, request, pk=None):
+        """Obtiene la lista de items pendientes de escanear"""
+        envio = self.get_object()
+        
+        # Obtener items ya escaneados
+        items_escaneados = envio.items_escaneados.values_list('id', flat=True)
+        
+        # Obtener items pendientes
+        items_pendientes = envio.items.exclude(id__in=items_escaneados).select_related(
+            'unidad', 'unidad__carga_item__producto'
+        )
+        
+        serializer = EnvioItemSerializer(items_pendientes, many=True)
+        return Response({
+            'pendientes': serializer.data,
+            'total_pendientes': items_pendientes.count(),
+            'total_items': envio.items.count()
+        })
 
 class EnvioItemViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = EnvioItem.objects.select_related(

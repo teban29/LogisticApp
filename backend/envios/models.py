@@ -6,6 +6,34 @@ import random
 from django.db.models.signals import post_save, post_delete
 from django.dispatch import receiver
 
+# Primero definimos EnvioItem antes de Envio
+class EnvioItem(models.Model):
+    envio = models.ForeignKey('Envio', on_delete=models.CASCADE, related_name='items')
+    unidad = models.ForeignKey(Unidad, on_delete=models.PROTECT, related_name='envio_items')
+    valor_unitario = models.DecimalField(
+        max_digits=10, 
+        decimal_places=2, 
+        validators=[MinValueValidator(0)]
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    
+    class Meta:
+        ordering = ['id']
+        unique_together = ['envio', 'unidad']
+        
+    def __str__(self):
+        return f"{self.unidad.codigo_barra} - ${self.valor_unitario}"
+    
+    def save(self, *args, **kwargs):
+        super().save(*args, **kwargs)
+        if hasattr(self, 'envio'):
+            self.envio.actualizar_valor_total()
+    
+    def delete(self, *args, **kwargs):
+        envio = self.envio
+        super().delete(*args, **kwargs)
+        envio.actualizar_valor_total()
+
 class Envio(models.Model):
     ESTADOS_ENVIO = (
         ('borrador', 'Borrador'),
@@ -27,6 +55,13 @@ class Envio(models.Model):
         validators=[MinValueValidator(0)]
     )
     estado = models.CharField(max_length=20, choices=ESTADOS_ENVIO, default='borrador')
+    items_escaneados = models.ManyToManyField(
+        EnvioItem,
+        through='EscaneoEntrega',
+        related_name='envios_escaneados',
+        blank=True
+    )
+    fecha_entrega_verificada = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     
@@ -59,34 +94,34 @@ class Envio(models.Model):
         total = sum(item.valor_unitario for item in self.items.all())
         self.valor_total = total
         self.save(update_fields=['valor_total'])
+        
+    def porcentaje_verificacion(self):
+        """Calcula el porcentaje de unidades escaneadas sobre el total"""
+        total_items = self.items.count()
+        if total_items == 0:
+            return 100
+        escaneados = self.items_escaneados.count()
+        return (escaneados / total_items) * 100
+    
+    def todos_items_verificados(self):
+        """Verifica si todos los items del envío han sido escaneados"""
+        return self.items.count() == self.items_escaneados.count()
 
-
-class EnvioItem(models.Model):
-    envio = models.ForeignKey(Envio, on_delete=models.CASCADE, related_name='items')
-    unidad = models.ForeignKey(Unidad, on_delete=models.PROTECT, related_name='envio_items')
-    valor_unitario = models.DecimalField(
-        max_digits=10, 
-        decimal_places=2, 
-        validators=[MinValueValidator(0)]
-    )
-    created_at = models.DateTimeField(auto_now_add=True)
+class EscaneoEntrega(models.Model):
+    envio = models.ForeignKey(Envio, on_delete=models.CASCADE)
+    item = models.ForeignKey(EnvioItem, on_delete=models.CASCADE)
+    fecha_escaneo = models.DateTimeField(auto_now_add=True)
+    escaneado_por = models.CharField(max_length=100, blank=True)
     
     class Meta:
-        ordering = ['id']
-        unique_together = ['envio', 'unidad']
+        unique_together = ['envio', 'item']
+        verbose_name = 'Escaneo de Entrega'
+        verbose_name_plural = 'Escaneos de Entrega'
         
     def __str__(self):
-        return f"{self.unidad.codigo_barra} - ${self.valor_unitario}"
-    
-    def save(self, *args, **kwargs):
-        super().save(*args, **kwargs)
-        self.envio.actualizar_valor_total()
-    
-    def delete(self, *args, **kwargs):
-        envio = self.envio
-        super().delete(*args, **kwargs)
-        envio.actualizar_valor_total()
-        
+        return f"Escaneo {self.item.unidad.codigo_barra} - {self.fecha_escaneo}"
+
+# Señales y métodos auxiliares
 @receiver(post_save, sender=EnvioItem)
 def actualizar_valor_total_despues_guardar(sender, instance, **kwargs):
     """Actualiza el valor total después de guardar un item"""
@@ -113,3 +148,6 @@ def get_dirty_fields(self):
         if getattr(self, field.name) != getattr(old, field.name):
             dirty[field.name] = getattr(old, field.name)
     return dirty
+
+# Agregar el método a EnvioItem
+EnvioItem.add_to_class('get_dirty_fields', get_dirty_fields)

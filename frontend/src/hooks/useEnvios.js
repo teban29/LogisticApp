@@ -9,6 +9,10 @@ import {
   removerItemEnvio,
   getCargasPorCliente,
   cambiarEstadoEnvio,
+  escanearItemEntrega,
+  obtenerEstadoVerificacion,
+  obtenerItemsPendientes,
+  forzarCompletarEntrega
 } from "../api/envios";
 
 export const useEnvios = () => {
@@ -167,6 +171,81 @@ export const useEnvios = () => {
     }
   }, []);
 
+  // Nuevas funciones para verificación de entrega
+  const escanearItemVerificacion = useCallback(async (envioId, codigoBarra, escaneadoPor = '') => {
+    setLoading(true);
+    setError(null);
+    try {
+      const data = await escanearItemEntrega(envioId, codigoBarra, escaneadoPor);
+      
+      // Si la entrega se completó, actualizamos el estado del envío
+      if (data.completado) {
+        setEnvios((prev) =>
+          prev.map((envio) =>
+            envio.id === envioId
+              ? { ...envio, estado: 'entregado', fecha_entrega_verificada: new Date().toISOString() }
+              : envio
+          )
+        );
+      }
+      
+      return data;
+    } catch (err) {
+      return handleError(err);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  const obtenerVerificacionEstado = useCallback(async (envioId) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const data = await obtenerEstadoVerificacion(envioId);
+      return data;
+    } catch (err) {
+      return handleError(err);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  const obtenerItemsPendientesVerificacion = useCallback(async (envioId) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const data = await obtenerItemsPendientes(envioId);
+      return data;
+    } catch (err) {
+      return handleError(err);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  const forzarEntregaCompletada = useCallback(async (envioId) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const data = await forzarCompletarEntrega(envioId);
+      
+      // Actualizar el estado del envío en la lista local
+      setEnvios((prev) =>
+        prev.map((envio) =>
+          envio.id === envioId
+            ? { ...envio, estado: 'entregado', fecha_entrega_verificada: new Date().toISOString() }
+            : envio
+        )
+      );
+      
+      return data;
+    } catch (err) {
+      return handleError(err);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
   return {
     loading,
     error,
@@ -181,6 +260,10 @@ export const useEnvios = () => {
     obtenerCargasPorCliente,
     cambiarEstado,
     getEnvio,
+    escanearItemVerificacion,
+    obtenerVerificacionEstado,
+    obtenerItemsPendientesVerificacion,
+    forzarEntregaCompletada,
     clearError: () => setError(null),
   };
 };

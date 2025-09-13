@@ -329,3 +329,39 @@ class EnvioSerializer(serializers.ModelSerializer):
         if value < 0:
             raise serializers.ValidationError("El valor unitario no puede ser negativo")
         return value
+    
+class EscaneoEntregaSerializer(serializers.Serializer):
+    codigo_barra = serializers.CharField(max_length=64)
+    escaneado_por = serializers.CharField(max_length=100, required=False, allow_blank=True, default="")
+    
+    def validate_codigo_barra(self, value):
+        """Valida que el código de barras exista y pertenezca a un envío"""
+        if not Unidad.objects.filter(codigo_barra=value).exists():
+            raise serializers.ValidationError("Código de barras no encontrado")
+        return value
+
+class EstadoVerificacionSerializer(serializers.ModelSerializer):
+    porcentaje_verificacion = serializers.SerializerMethodField()
+    items_totales = serializers.SerializerMethodField()
+    items_escaneados = serializers.SerializerMethodField()
+    items_pendientes = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = Envio
+        fields = [
+            'id', 'numero_guia', 'estado', 'porcentaje_verificacion',
+            'items_totales', 'items_escaneados', 'items_pendientes',
+            'fecha_entrega_verificada'
+        ]
+    
+    def get_porcentaje_verificacion(self, obj):
+        return obj.porcentaje_verificacion()
+    
+    def get_items_totales(self, obj):
+        return obj.items.count()
+    
+    def get_items_escaneados(self, obj):
+        return obj.items_escaneados.count()
+    
+    def get_items_pendientes(self, obj):
+        return obj.items.count() - obj.items_escaneados.count()
