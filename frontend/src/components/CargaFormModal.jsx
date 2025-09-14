@@ -41,6 +41,8 @@ export default function CargaFormModal({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [hasChanges, setHasChanges] = useState(false); // ← Nuevo estado
+  const [proveedorSearch, setProveedorSearch] = useState("");
+  const [showProveedorDropdown, setShowProveedorDropdown] = useState(false);
 
   // Cargar clientes cuando se abre el modal
   useEffect(() => {
@@ -97,6 +99,13 @@ export default function CargaFormModal({
         );
         if (!provList.some((p) => String(p.id) === String(form.proveedor))) {
           setForm((f) => ({ ...f, proveedor: "" }));
+          setProveedorSearch("");
+        } else {
+          // Actualizar el texto de búsqueda con el proveedor seleccionado
+          const selectedProvider = provList.find((p) => String(p.id) === String(form.proveedor));
+          if (selectedProvider) {
+            setProveedorSearch(selectedProvider.nombre);
+          }
         }
       } catch (err) {
         console.error("Error fetching providers for client:", err);
@@ -129,6 +138,8 @@ export default function CargaFormModal({
       setError("");
       setProveedoresOptions([]);
       setHasChanges(false); // ← Resetear cambios al cerrar
+      setProveedorSearch("");
+      setShowProveedorDropdown(false);
     }
   }, [open]);
 
@@ -214,6 +225,45 @@ export default function CargaFormModal({
     } else {
       setForm((f) => ({ ...f, [name]: value }));
     }
+  };
+
+  // Filtrar proveedores basado en la búsqueda
+  const filteredProveedores = proveedoresOptions.filter((proveedor) =>
+    proveedor.label.toLowerCase().includes(proveedorSearch.toLowerCase())
+  );
+
+  // Manejar cambio en el input de búsqueda de proveedor
+  const handleProveedorSearchChange = (e) => {
+    const value = e.target.value;
+    setProveedorSearch(value);
+    setShowProveedorDropdown(true);
+    
+    // Si el campo está vacío, limpiar la selección
+    if (!value.trim()) {
+      setForm((f) => ({ ...f, proveedor: "" }));
+    }
+  };
+
+  // Seleccionar un proveedor de la lista
+  const selectProveedor = (proveedor) => {
+    setForm((f) => ({ ...f, proveedor: proveedor.value }));
+    setProveedorSearch(proveedor.label.split(" — ")[0]); // Solo mostrar el nombre, no el NIT
+    setShowProveedorDropdown(false);
+  };
+
+  // Manejar focus en el input de proveedor
+  const handleProveedorFocus = () => {
+    if (proveedoresOptions.length > 0) {
+      setShowProveedorDropdown(true);
+    }
+  };
+
+  // Manejar blur en el input de proveedor
+  const handleProveedorBlur = () => {
+    // Delay para permitir clicks en el dropdown
+    setTimeout(() => {
+      setShowProveedorDropdown(false);
+    }, 200);
   };
 
   const handleItemChange = (index, field, value) => {
@@ -355,29 +405,56 @@ export default function CargaFormModal({
               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                 <RiTruckLine className="h-5 w-5 text-gray-400" />
               </div>
-              <select
-                name="proveedor"
-                value={form.proveedor}
-                onChange={handleChange}
+              <input
+                type="text"
+                value={proveedorSearch}
+                onChange={handleProveedorSearchChange}
+                onFocus={handleProveedorFocus}
+                onBlur={handleProveedorBlur}
                 className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-colors disabled:bg-gray-50 disabled:text-gray-500"
+                placeholder={form.cliente ? "Buscar proveedor..." : "Primero selecciona un cliente"}
+                disabled={!form.cliente || loadingOptions}
                 required
-                disabled={!form.cliente || loadingOptions}>
-                <option value="">
-                  {form.cliente
-                    ? "Selecciona un proveedor"
-                    : "Primero selecciona un cliente"}
-                </option>
-                {proveedoresOptions.map((p) => (
-                  <option key={p.value} value={p.value}>
-                    {p.label}
-                  </option>
-                ))}
-              </select>
+              />
+              
+              {/* Dropdown de proveedores */}
+              {showProveedorDropdown && form.cliente && filteredProveedores.length > 0 && (
+                <div className="absolute z-50 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                  {filteredProveedores.map((proveedor) => (
+                    <button
+                      key={proveedor.value}
+                      type="button"
+                      onClick={() => selectProveedor(proveedor)}
+                      className="w-full text-left px-4 py-2.5 hover:bg-blue-50 hover:text-blue-700 transition-colors border-b border-gray-100 last:border-b-0"
+                    >
+                      <div className="font-medium">{proveedor.label.split(" — ")[0]}</div>
+                      {proveedor.label.includes(" — ") && (
+                        <div className="text-sm text-gray-500">
+                          NIT: {proveedor.label.split(" — ")[1]}
+                        </div>
+                      )}
+                    </button>
+                  ))}
+                </div>
+              )}
+              
+              {/* Mensaje cuando no hay resultados */}
+              {showProveedorDropdown && form.cliente && proveedorSearch && filteredProveedores.length === 0 && (
+                <div className="absolute z-50 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg p-4 text-center text-gray-500">
+                  No se encontraron proveedores que coincidan con "{proveedorSearch}"
+                </div>
+              )}
             </div>
             {!form.cliente && (
               <p className="text-xs text-gray-500 mt-1 flex items-center gap-1">
                 <RiInformationLine className="flex-shrink-0" />
                 Selecciona un cliente para ver sus proveedores
+              </p>
+            )}
+            {form.cliente && proveedoresOptions.length === 0 && !loadingOptions && (
+              <p className="text-xs text-orange-600 mt-1 flex items-center gap-1">
+                <RiInformationLine className="flex-shrink-0" />
+                Este cliente no tiene proveedores asignados
               </p>
             )}
           </div>
