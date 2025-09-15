@@ -36,7 +36,7 @@ export const router = createBrowserRouter([
             children: [{ path: "/clientes", element: <Clients /> }],
           },
           { 
-            element: <RoleProtected allowedRoles={["admin", "operador","conductor"]} />,
+            element: <RoleProtected allowedRoles={["admin", "operador"]} />,
             children: [{ path: "/proveedores", element: <Providers /> }],
           },
           { 
@@ -48,11 +48,11 @@ export const router = createBrowserRouter([
             children: [{ path: "/cargas/:id", element: <CargaDetailPage /> }],
           },
           { 
-            element: <RoleProtected allowedRoles={["admin", "cliente", "conductor"]} />,
+            element: <RoleProtected allowedRoles={["admin", "operador", "cliente", "conductor"]} />,
             children: [{ path: "/envios", element: <Envios /> }],
           },
           { 
-            element: <RoleProtected allowedRoles={["admin", "cliente", "conductor"]} />,
+            element: <RoleProtected allowedRoles={["admin", "cliente", "conductor", "operador"]} />,
             children: [{ path: "/envios/:id", element: <EnvioDetailPage /> }],
           },
         ],

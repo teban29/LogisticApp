@@ -25,6 +25,7 @@ import {
 export default function Providers() {
   const { user } = useAuth();
   const isAdmin = user?.rol === 'admin';
+  const canCreateProviders = user?.rol === 'admin' || user?.rol === 'operador';
   const [providers, setProviders] = useState([]);
   const [count, setCount] = useState(0);
   const [page, setPage] = useState(1);
@@ -131,7 +132,7 @@ export default function Providers() {
             <RiRefreshLine className="text-lg" />
             <span className="hidden sm:inline">Actualizar</span>
           </button>
-          {isAdmin && (
+          {canCreateProviders && (
             <button
               onClick={handleCreate}
               className="flex items-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors"

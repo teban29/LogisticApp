@@ -4,7 +4,7 @@ from django.db.models import Prefetch
 from django.http import HttpResponse
 from .models import Carga, Unidad, CargaItem, Producto
 from .serializers import CargaSerializer, UnidadSerializer, ProductoSerializer
-from .permissions import IsAdminRole
+from .permissions import IsAdminOrOperador, IsAdminOrOperadorForCargas, PuedeImprimirEtiquetas, IsAdminRole
 from .services import generar_unidades_para_carga
 
 from .filters import CargaFilter
@@ -55,12 +55,21 @@ class CargaViewSet(viewsets.ModelViewSet):
     def get_permissions(self):
         """
         Permisos diferenciados por acción:
-        - List/Retrieve: Admin o cliente con cliente asignado
-        - Create/Update/Delete: Solo admin
+        - List/Retrieve/Etiquetas: Admin, operador o cliente con cliente asignado
+        - Create: Admin u operador  
+        - Update/Delete: Solo admin
         """
-        if self.action in ['list', 'retrieve']:
-            permission_classes = [EsClienteYTieneCliente | IsAdminRole]
+        if self.action in ['list', 'retrieve', 'etiquetas']:
+            # Clientes solo pueden ver, admin y operador pueden ver e imprimir etiquetas
+            permission_classes = [EsClienteYTieneCliente | IsAdminOrOperadorForCargas]
+        elif self.action == 'create':
+            # Solo admin y operador pueden crear
+            permission_classes = [IsAdminOrOperadorForCargas]
+        elif self.action in ['update', 'partial_update', 'destroy']:
+            # Solo admin puede modificar/eliminar
+            permission_classes = [IsAdminRole]
         else:
+            # Para otras acciones, solo admin
             permission_classes = [IsAdminRole]
         return [permission() for permission in permission_classes]
     
@@ -154,10 +163,11 @@ class CargaViewSet(viewsets.ModelViewSet):
         return response
     
     
-    @decorators.action(detail=True, methods=['post'])
+    @decorators.action(detail=True, methods=['post'], permission_classes=[IsAdminRole])
     def generar_unidades(self, request, pk=None):
         """
         Genera unidades para una carga específica.
+        Solo disponible para administradores.
         """
         carga = self.get_object()
         generar_unidades_para_carga(carga)
@@ -166,7 +176,7 @@ class CargaViewSet(viewsets.ModelViewSet):
             status=status.HTTP_200_OK
         )
     
-    @decorators.action(detail=True, methods=['get'], url_path='etiquetas')
+    @decorators.action(detail=True, methods=['get'], url_path='etiquetas', permission_classes=[IsAdminOrOperador])
     def etiquetas(self, request, pk=None):
         """
         GET /api/cargas/<id>/etiquetas/?item_id=XX
@@ -174,7 +184,14 @@ class CargaViewSet(viewsets.ModelViewSet):
         - Barcode EXACTO: 85mm ancho x 44mm alto, centrado
         - Tipografía: Helvetica, 12pt (líneas), 11pt (ID)
         """
-        carga = self.get_object()
+        
+        print(f"Usuario: {request.user}")
+        print(f"Rol: {request.user.rol}")
+        print(f"Autenticado: {request.user.is_authenticated}")
+        print(f"Método: {request.method}")
+        
+        carga = self.get_object()    
+        
         item_id = request.query_params.get('item_id')
 
         qs = Unidad.objects.select_related(

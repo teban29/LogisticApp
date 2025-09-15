@@ -30,6 +30,7 @@ import {
 export default function Clients() {
   const { user } = useAuth();
   const isAdmin = user?.rol === "admin";
+  const canCreateClients = user?.rol === "admin" || user?.rol === "operador";
   const [clients, setClients] = useState([]);
   const [count, setCount] = useState(0);
   const [page, setPage] = useState(1);
@@ -154,7 +155,7 @@ export default function Clients() {
             <RiRefreshLine className="text-lg" />
             <span className="hidden sm:inline">Actualizar</span>
           </button>
-          {isAdmin && (
+          {canCreateClients && (
             <button
               onClick={handleCreate}
               className="flex items-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors"

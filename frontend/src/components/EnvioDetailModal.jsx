@@ -1,4 +1,5 @@
 import Modal from "./Modal";
+import { useAuth } from "../context/AuthContext";
 import {
   RiTruckLine,
   RiUserLine,
@@ -76,6 +77,9 @@ const getProductoNombre = (item) => {
 };
 
 export default function EnvioDetailModal({ open, onClose, envio }) {
+  const { user } = useAuth();
+  const isAdmin = user?.rol === "admin";
+  
   if (!envio) return null;
 
   const EstadoIcon = ESTADOS_ENVIO[envio.estado]?.icon || RiTimeLine;
@@ -134,15 +138,17 @@ export default function EnvioDetailModal({ open, onClose, envio }) {
               </div>
             </div>
 
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-blue-100 rounded-lg">
-                <RiMoneyDollarCircleLine className="text-blue-600 text-lg" />
+            {isAdmin && (
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-blue-100 rounded-lg">
+                  <RiMoneyDollarCircleLine className="text-blue-600 text-lg" />
+                </div>
+                <div>
+                  <p className="text-sm text-gray-600">Valor Total</p>
+                  <p className="font-medium">${envio.valor_total}</p>
+                </div>
               </div>
-              <div>
-                <p className="text-sm text-gray-600">Valor Total</p>
-                <p className="font-medium">${envio.valor_total}</p>
-              </div>
-            </div>
+            )}
 
             <div className="flex items-center gap-3">
               <div className="p-2 bg-blue-100 rounded-lg">
@@ -216,25 +222,29 @@ export default function EnvioDetailModal({ open, onClose, envio }) {
                       </div>
                     </div>
 
-                    <div className="text-right">
-                      <p className="font-medium text-sm">
-                        ${item.valor_unitario || 0}
-                      </p>
-                      <p className="text-xs text-gray-500">Valor unitario</p>
-                    </div>
+                    {isAdmin && (
+                      <div className="text-right">
+                        <p className="font-medium text-sm">
+                          ${item.valor_unitario || 0}
+                        </p>
+                        <p className="text-xs text-gray-500">Valor unitario</p>
+                      </div>
+                    )}
                   </div>
                 );
               })}
 
               {/* Total */}
-              <div className="flex justify-between items-center p-3 bg-blue-50 border border-blue-200 rounded-lg mt-4">
-                <span className="font-medium text-blue-900">
-                  Total del envío:
-                </span>
-                <span className="text-lg font-bold text-blue-900">
-                  ${envio.valor_total}
-                </span>
-              </div>
+              {isAdmin && (
+                <div className="flex justify-between items-center p-3 bg-blue-50 border border-blue-200 rounded-lg mt-4">
+                  <span className="font-medium text-blue-900">
+                    Total del envío:
+                  </span>
+                  <span className="text-lg font-bold text-blue-900">
+                    ${envio.valor_total}
+                  </span>
+                </div>
+              )}
             </div>
           ) : (
             <div className="text-center py-8 text-gray-500">

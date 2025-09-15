@@ -151,6 +151,8 @@ export default function Users() {
         return { bg: "bg-blue-100", text: "text-blue-800", label: "Operador" };
       case "cliente":
         return { bg: "bg-green-100", text: "text-green-800", label: "Cliente" };
+      case "conductor":
+        return { bg: "bg-orange-100", text: "text-orange-800", label: "Conductor" };
       default:
         return { bg: "bg-gray-100", text: "text-gray-800", label: role };
     }

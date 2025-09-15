@@ -192,56 +192,50 @@ class EnvioSerializer(serializers.ModelSerializer):
         """Método helper para crear items del envío"""
         items_to_create = []
         unidades_ids = []
-        
+
         for item_data in items_data:
-            unidad_id = item_data['unidad_id']
+            codigo_barra = item_data.get('unidad_codigo')
             valor_unitario = item_data['valor_unitario']
-            
-            # Validar que la unidad pertenece al cliente del envío
+
             try:
                 unidad = Unidad.objects.select_related(
                     'carga_item__carga__cliente'
-                ).get(id=unidad_id)
+                ).get(codigo_barra=codigo_barra)
             except Unidad.DoesNotExist:
-                raise serializers.ValidationError(f"Unidad con ID {unidad_id} no existe")
-            
+                raise serializers.ValidationError(f"Unidad con código {codigo_barra} no existe")
+
             if unidad.carga_item.carga.cliente_id != envio.cliente_id:
                 raise serializers.ValidationError(
                     f"La unidad {unidad.codigo_barra} no pertenece al cliente {envio.cliente.nombre}"
                 )
-            
+
             if unidad.id in unidades_ids:
                 raise serializers.ValidationError(f"Unidad {unidad.codigo_barra} duplicada en el envío")
-            
+
             if unidad.estado != 'disponible':
                 raise serializers.ValidationError(
                     f"La unidad {unidad.codigo_barra} no está disponible. Estado actual: {unidad.estado}"
                 )
-            
-            # Verificar si la unidad ya está en otro envío pendiente
+
             if EnvioItem.objects.filter(unidad=unidad, envio__estado__in=['borrador', 'pendiente']).exists():
                 raise serializers.ValidationError(
                     f"La unidad {unidad.codigo_barra} ya está asignada a otro envío"
                 )
-            
+
             unidades_ids.append(unidad.id)
             items_to_create.append(EnvioItem(
                 envio=envio,
                 unidad=unidad,
                 valor_unitario=valor_unitario
             ))
-        
+
         if items_to_create:
-            # Crear todos los items
             EnvioItem.objects.bulk_create(items_to_create)
-            
-            # Actualizar estado de las unidades a 'reservada'
             Unidad.objects.filter(id__in=unidades_ids).update(estado='reservada')
-            
-            # Actualizar estado del envío si estaba en borrador
             if envio.estado == 'borrador':
                 envio.estado = 'pendiente'
                 envio.save(update_fields=['estado'])
+
                 
     
 

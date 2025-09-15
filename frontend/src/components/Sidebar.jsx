@@ -52,7 +52,7 @@ export default function Sidebar({ open, setOpen }) {
       to: '/envios',
       label: 'Envíos',
       icon: <RiTruckLine />,
-      allowedRoles: ['admin', 'operador', 'cliente'],
+      allowedRoles: ['admin', 'operador', 'cliente', 'conductor'],
     },
     {
       to: '/usuarios',

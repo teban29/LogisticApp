@@ -26,7 +26,7 @@ import {
   RiCheckLine,
   RiRefreshLine,
   RiFilterLine,
-  RiBarcodeLine // Nuevo icono para verificación
+  RiBarcodeLine, // Nuevo icono para verificación
 } from "react-icons/ri";
 
 const ESTADOS_ENVIO = {
@@ -60,6 +60,7 @@ const ESTADOS_ENVIO = {
 export default function Envios() {
   const { user } = useAuth();
   const isAdmin = user?.rol === "admin";
+  const isConductor = user?.rol === "conductor";
   const navigate = useNavigate();
 
   const {
@@ -112,27 +113,27 @@ export default function Envios() {
   // Nueva función para verificación de entrega
   const handleVerificarEntrega = (envio) => {
     // Validar que el envío esté en estado apropiado
-    if (!['pendiente', 'en_transito'].includes(envio.estado)) {
-      alert('Solo se pueden verificar envíos pendientes o en tránsito');
+    if (!["pendiente", "en_transito"].includes(envio.estado)) {
+      alert("Solo se pueden verificar envíos pendientes o en tránsito");
       return;
     }
-    
+
     setEnvioVerificacion(envio);
     setOpenVerificacion(true);
   };
 
   const fetchData = async () => {
     try {
-      const params = { 
-        page, 
-        page_size: pageSize 
+      const params = {
+        page,
+        page_size: pageSize,
       };
-      
+
       // Solo agregar parámetros si tienen valor
       if (debouncedSearch) {
         params.search = debouncedSearch;
       }
-      
+
       if (filtroEstado) {
         params.estado = filtroEstado;
       }
@@ -228,8 +229,7 @@ export default function Envios() {
           <button
             onClick={fetchData}
             disabled={loading}
-            className="flex items-center gap-2 px-3 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50"
-          >
+            className="flex items-center gap-2 px-3 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50">
             {loading ? (
               <RiLoader4Line className="animate-spin text-lg" />
             ) : (
@@ -240,8 +240,7 @@ export default function Envios() {
           {isAdmin && (
             <button
               onClick={handleCreate}
-              className="flex items-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors"
-            >
+              className="flex items-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors">
               <RiAddLine className="text-lg" />
               <span>Nuevo envío</span>
             </button>
@@ -259,8 +258,7 @@ export default function Envios() {
           {hasFilters && (
             <button
               onClick={clearFilters}
-              className="flex items-center gap-1 text-sm text-blue-600 hover:text-blue-800"
-            >
+              className="flex items-center gap-1 text-sm text-blue-600 hover:text-blue-800">
               <RiCloseLine />
               Limpiar filtros
             </button>
@@ -289,8 +287,7 @@ export default function Envios() {
               {search && (
                 <button
                   onClick={() => setSearch("")}
-                  className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600"
-                >
+                  className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600">
                   <RiCloseLine className="h-4 w-4" />
                 </button>
               )}
@@ -308,8 +305,7 @@ export default function Envios() {
                 setFiltroEstado(e.target.value);
                 setPage(1);
               }}
-              className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-colors"
-            >
+              className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-colors">
               <option value="">Todos los estados</option>
               {Object.entries(ESTADOS_ENVIO).map(([key, { label }]) => (
                 <option key={key} value={key}>
@@ -328,16 +324,16 @@ export default function Envios() {
             <div className="flex items-center gap-2">
               <RiFilterLine className="text-blue-600" />
               <span className="text-sm text-blue-700">
-                Filtros aplicados: 
+                Filtros aplicados:
                 {debouncedSearch && ` Búsqueda: "${debouncedSearch}"`}
                 {debouncedSearch && filtroEstado && " • "}
-                {filtroEstado && ` Estado: ${ESTADOS_ENVIO[filtroEstado]?.label}`}
+                {filtroEstado &&
+                  ` Estado: ${ESTADOS_ENVIO[filtroEstado]?.label}`}
               </span>
             </div>
             <button
               onClick={clearFilters}
-              className="text-blue-600 hover:text-blue-800 text-sm"
-            >
+              className="text-blue-600 hover:text-blue-800 text-sm">
               Limpiar
             </button>
           </div>
@@ -359,9 +355,11 @@ export default function Envios() {
                 <th className="p-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Conductor
                 </th>
-                <th className="p-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Valor Total
-                </th>
+                {isAdmin && (
+                  <th className="p-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Valor Total
+                  </th>
+                )}
                 <th className="p-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Fecha
                 </th>
@@ -376,7 +374,7 @@ export default function Envios() {
             <tbody className="divide-y divide-gray-200">
               {loading && (
                 <tr>
-                  <td className="p-8 text-center" colSpan={7}>
+                  <td className="p-8 text-center" colSpan={isAdmin ? 7 : 6}>
                     <div className="flex flex-col items-center justify-center py-8">
                       <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mb-3"></div>
                       <p className="text-gray-600">Cargando envíos...</p>
@@ -387,14 +385,13 @@ export default function Envios() {
 
               {error && !loading && (
                 <tr>
-                  <td className="p-8 text-center" colSpan={7}>
+                  <td className="p-8 text-center" colSpan={isAdmin ? 7 : 6}>
                     <div className="flex flex-col items-center justify-center py-4 text-red-600">
                       <RiErrorWarningLine className="text-3xl mb-2" />
                       <p className="font-medium">{error}</p>
                       <button
                         onClick={fetchData}
-                        className="mt-3 px-4 py-2 bg-red-100 hover:bg-red-200 text-red-700 rounded-lg transition-colors"
-                      >
+                        className="mt-3 px-4 py-2 bg-red-100 hover:bg-red-200 text-red-700 rounded-lg transition-colors">
                         Reintentar
                       </button>
                     </div>
@@ -404,7 +401,7 @@ export default function Envios() {
 
               {!loading && !error && envios.length === 0 && (
                 <tr>
-                  <td className="p-8 text-center" colSpan={7}>
+                  <td className="p-8 text-center" colSpan={isAdmin ? 7 : 6}>
                     <div className="flex flex-col items-center justify-center py-8">
                       <RiTruckLine className="text-4xl text-gray-400 mb-3" />
                       <p className="text-gray-600 font-medium">
@@ -418,8 +415,7 @@ export default function Envios() {
                       {hasFilters && (
                         <button
                           onClick={clearFilters}
-                          className="mt-3 px-4 py-2 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-lg transition-colors"
-                        >
+                          className="mt-3 px-4 py-2 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-lg transition-colors">
                           Limpiar filtros
                         </button>
                       )}
@@ -437,13 +433,14 @@ export default function Envios() {
                     ESTADOS_ENVIO[envio.estado] || ESTADOS_ENVIO.borrador;
 
                   return (
-                    <tr key={envio.id} className="hover:bg-gray-50 transition-colors">
+                    <tr
+                      key={envio.id}
+                      className="hover:bg-gray-50 transition-colors">
                       <td className="p-4">
                         <div
                           className="font-mono text-sm font-medium text-gray-900 cursor-pointer hover:text-blue-600 hover:underline"
                           onClick={() => navigate(`/envios/${envio.id}`)}
-                          title="Ver detalles del envío"
-                        >
+                          title="Ver detalles del envío">
                           {envio.numero_guia}
                         </div>
                       </td>
@@ -461,14 +458,16 @@ export default function Envios() {
                           <span>{envio.conductor}</span>
                         </div>
                       </td>
-                      <td className="p-4">
-                        <div className="flex items-center gap-2">
-                          <RiMoneyDollarCircleLine className="text-gray-400 flex-shrink-0" />
-                          <span className="font-medium">
-                            ${envio.valor_total?.toLocaleString()}
-                          </span>
-                        </div>
-                      </td>
+                      {isAdmin && (
+                        <td className="p-4">
+                          <div className="flex items-center gap-2">
+                            <RiMoneyDollarCircleLine className="text-gray-400 flex-shrink-0" />
+                            <span className="font-medium">
+                              ${envio.valor_total?.toLocaleString()}
+                            </span>
+                          </div>
+                        </td>
+                      )}
                       <td className="p-4">
                         <div className="flex items-center gap-2">
                           <RiCalendarLine className="text-gray-400 flex-shrink-0" />
@@ -479,8 +478,7 @@ export default function Envios() {
                       </td>
                       <td className="p-4">
                         <span
-                          className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-medium ${estadoConfig.color}`}
-                        >
+                          className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-medium ${estadoConfig.color}`}>
                           <EstadoIcon className="text-sm" />
                           {estadoConfig.label}
                         </span>
@@ -490,55 +488,57 @@ export default function Envios() {
                           <button
                             onClick={() => handleViewDetail(envio)}
                             className="p-2 text-gray-500 hover:text-purple-600 hover:bg-purple-50 rounded-lg transition-colors"
-                            title="Ver detalle"
-                          >
+                            title="Ver detalle">
                             <RiEyeLine className="text-lg" />
                           </button>
-                          
+
                           {/* Botón de verificación de entrega */}
-                          {['pendiente', 'en_transito'].includes(envio.estado) && (
-                            <button
-                              onClick={() => handleVerificarEntrega(envio)}
-                              className="p-2 text-gray-500 hover:text-green-600 hover:bg-green-50 rounded-lg transition-colors"
-                              title="Verificar entrega"
-                            >
-                              <RiBarcodeLine className="text-lg" />
-                            </button>
-                          )}
-                          
+                          {(isAdmin || isConductor) &&
+                            ["pendiente", "en_transito"].includes(
+                              envio.estado
+                            ) && (
+                              <button
+                                onClick={() => handleVerificarEntrega(envio)}
+                                className="p-2 text-gray-500 hover:text-green-600 hover:bg-green-50 rounded-lg transition-colors"
+                                title="Verificar entrega">
+                                <RiBarcodeLine className="text-lg" />
+                              </button>
+                            )}
+
                           {isAdmin && (
                             <button
                               onClick={() => handleEdit(envio)}
                               className="p-2 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                              title="Editar envío"
-                            >
+                              title="Editar envío">
                               <RiEditLine className="text-lg" />
                             </button>
                           )}
-                          
-                          {isAdmin && envio.estado === "pendiente" && (
-                            <button
-                              onClick={() =>
-                                handleCambiarEstado(envio.id, "en_transito")
-                              }
-                              className="p-2 text-gray-500 hover:text-green-600 hover:bg-green-50 rounded-lg transition-colors"
-                              title="Marcar como en tránsito"
-                            >
-                              <RiCheckLine className="text-lg" />
-                            </button>
-                          )}
-                          
-                          {isAdmin && envio.estado === "en_transito" && (
-                            <button
-                              onClick={() =>
-                                handleCambiarEstado(envio.id, "entregado")
-                              }
-                              className="p-2 text-gray-500 hover:text-green-600 hover:bg-green-50 rounded-lg transition-colors"
-                              title="Marcar como entregado"
-                            >
-                              <RiCheckLine className="text-lg" />
-                            </button>
-                          )}
+
+                          {/* Marcar como en tránsito */}
+                          {(isAdmin || isConductor) &&
+                            envio.estado === "pendiente" && (
+                              <button
+                                onClick={() =>
+                                  handleCambiarEstado(envio.id, "en_transito")
+                                }
+                                className="p-2 text-gray-500 hover:text-green-600 hover:bg-green-50 rounded-lg transition-colors"
+                                title="Marcar como en tránsito">
+                                <RiCheckLine className="text-lg" />
+                              </button>
+                            )}
+
+                          {/* Marcar como entregado */}
+                          {(isAdmin || isConductor) &&
+                            envio.estado === "en_transito" && (
+                              <button
+                                onClick={() =>
+                                  handleCambiarEstado(envio.id, "entregado")
+                                }
+                                className="p-2 text-gray-500 hover:text-green-600 hover:bg-green-50 rounded-lg transition-colors"
+                                title="Marcar como entregado">
+                                <RiCheckLine className="text-lg" />
+                              </button>
+                            )}
                         </div>
                       </td>
                     </tr>
@@ -563,8 +563,7 @@ export default function Envios() {
               <button
                 onClick={() => setPage((p) => Math.max(1, p - 1))}
                 disabled={page <= 1}
-                className="flex items-center gap-1 px-3 py-1.5 text-sm border border-gray-300 rounded-lg hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-              >
+                className="flex items-center gap-1 px-3 py-1.5 text-sm border border-gray-300 rounded-lg hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
                 <RiArrowLeftSLine />
                 Anterior
               </button>
@@ -579,8 +578,7 @@ export default function Envios() {
                         page === pageNum
                           ? "bg-blue-600 text-white"
                           : "text-gray-700 hover:bg-gray-100"
-                      } transition-colors`}
-                    >
+                      } transition-colors`}>
                       {pageNum}
                     </button>
                   );
@@ -590,8 +588,7 @@ export default function Envios() {
               <button
                 onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
                 disabled={page >= totalPages}
-                className="flex items-center gap-1 px-3 py-1.5 text-sm border border-gray-300 rounded-lg hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-              >
+                className="flex items-center gap-1 px-3 py-1.5 text-sm border border-gray-300 rounded-lg hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
                 Siguiente
                 <RiArrowRightSLine />
               </button>

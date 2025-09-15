@@ -340,31 +340,35 @@ export default function EnvioDetailPage() {
                 </button>
               )}
 
-              <button
-                onClick={handlePrint}
-                disabled={loadingEnvio}
-                title="Generar e imprimir acta de entrega del envío"
-                className="flex items-center gap-2 px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-300 disabled:opacity-50 transition-colors">
-                {loadingEnvio ? (
-                  <RiLoader4Line className="text-lg animate-spin" />
-                ) : (
-                  <RiPrinterLine className="text-lg" />
-                )}
-                <span>{loadingEnvio ? "Generando..." : "Imprimir Acta"}</span>
-              </button>
+              {isAdmin && (
+                <button
+                  onClick={handlePrint}
+                  disabled={loadingEnvio}
+                  title="Generar e imprimir acta de entrega del envío"
+                  className="flex items-center gap-2 px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-300 disabled:opacity-50 transition-colors">
+                  {loadingEnvio ? (
+                    <RiLoader4Line className="text-lg animate-spin" />
+                  ) : (
+                    <RiPrinterLine className="text-lg" />
+                  )}
+                  <span>{loadingEnvio ? "Generando..." : "Imprimir Acta"}</span>
+                </button>
+              )}
 
-              <button
-                onClick={handlePrintBilling}
-                disabled={loadingEnvio}
-                title="Generar e imprimir cuenta de cobro con valores unitarios y total"
-                className="flex items-center gap-2 px-4 py-2 text-green-700 bg-green-100 border border-green-300 rounded-lg hover:bg-green-200 disabled:opacity-50 transition-colors">
-                {loadingEnvio ? (
-                  <RiLoader4Line className="text-lg animate-spin" />
-                ) : (
-                  <RiMoneyDollarCircleLine className="text-lg" />
-                )}
-                <span>{loadingEnvio ? "Generando..." : "Cuenta de Cobro"}</span>
-              </button>
+              {isAdmin && (
+                <button
+                  onClick={handlePrintBilling}
+                  disabled={loadingEnvio}
+                  title="Generar e imprimir cuenta de cobro con valores unitarios y total"
+                  className="flex items-center gap-2 px-4 py-2 text-green-700 bg-green-100 border border-green-300 rounded-lg hover:bg-green-200 disabled:opacity-50 transition-colors">
+                  {loadingEnvio ? (
+                    <RiLoader4Line className="text-lg animate-spin" />
+                  ) : (
+                    <RiMoneyDollarCircleLine className="text-lg" />
+                  )}
+                  <span>{loadingEnvio ? "Generando..." : "Cuenta de Cobro"}</span>
+                </button>
+              )}
 
               {isAdmin && (
                 <button
@@ -459,17 +463,19 @@ export default function EnvioDetailPage() {
                   </div>
                 </div>
 
-                <div className="space-y-1">
-                  <label className="block text-sm font-medium text-gray-500">
-                    Valor Total
-                  </label>
-                  <div className="flex items-center gap-2">
-                    <RiMoneyDollarCircleLine className="text-gray-400" />
-                    <p className="text-lg font-semibold text-green-600">
-                      ${envio.valor_total}
-                    </p>
+                {isAdmin && (
+                  <div className="space-y-1">
+                    <label className="block text-sm font-medium text-gray-500">
+                      Valor Total
+                    </label>
+                    <div className="flex items-center gap-2">
+                      <RiMoneyDollarCircleLine className="text-gray-400" />
+                      <p className="text-lg font-semibold text-green-600">
+                        ${envio.valor_total}
+                      </p>
+                    </div>
                   </div>
-                </div>
+                )}
               </div>
             </div>
 
@@ -504,27 +510,31 @@ export default function EnvioDetailPage() {
                           </div>
                         </div>
 
-                        <div className="text-right">
-                          <p className="font-semibold text-gray-900 text-lg">
-                            ${item.valor_unitario || 0}
-                          </p>
-                          <p className="text-sm text-gray-500">
-                            Valor unitario
-                          </p>
-                        </div>
+                        {isAdmin && (
+                          <div className="text-right">
+                            <p className="font-semibold text-gray-900 text-lg">
+                              ${item.valor_unitario || 0}
+                            </p>
+                            <p className="text-sm text-gray-500">
+                              Valor unitario
+                            </p>
+                          </div>
+                        )}
                       </div>
                     );
                   })}
 
                   {/* Total */}
-                  <div className="flex justify-between items-center p-4 bg-blue-50 border border-blue-200 rounded-lg mt-6">
-                    <span className="text-lg font-semibold text-blue-900">
-                      Total del envío:
-                    </span>
-                    <span className="text-2xl font-bold text-blue-900">
-                      ${envio.valor_total}
-                    </span>
-                  </div>
+                  {isAdmin && (
+                    <div className="flex justify-between items-center p-4 bg-blue-50 border border-blue-200 rounded-lg mt-6">
+                      <span className="text-lg font-semibold text-blue-900">
+                        Total del envío:
+                      </span>
+                      <span className="text-2xl font-bold text-blue-900">
+                        ${envio.valor_total}
+                      </span>
+                    </div>
+                  )}
                 </div>
               ) : (
                 <div className="text-center py-12 text-gray-500">

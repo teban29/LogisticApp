@@ -49,10 +49,6 @@ export async function createCarga(payload) {
     form.append("factura", payload.facturaFile);
   }
 
-  for (const pair of form.entries()) {
-    console.log("FormData entry:", pair[0], pair[1]);
-  }
-
   const res = await api.post("/api/cargas/", form);
   return res.data;
 }
@@ -80,23 +76,67 @@ export async function generarUnidades(cargaId) {
 }
 
 export async function listUnidades(params = {}) {
-  const res = await api.get("/api/cargas/unidades/", { params });
+  const res = await api.get("/api/unidades/", { params });
   return res.data;
 }
 
 export async function descargarEtiquetasPorItem(cargaId, itemId) {
-  const res = await api.get(`/api/cargas/${cargaId}/etiquetas/`, {
-    params: { item_id: itemId },
-    responseType: "blob",
-  });
-  return res.data;
+  try {
+    const response = await api.get(`/api/cargas/${cargaId}/etiquetas/`, {
+      params: { item_id: itemId },
+      responseType: "blob",
+    });
+    
+    // Verificar si la respuesta es un blob válido (PDF)
+    if (response.data instanceof Blob && response.data.type === 'application/pdf') {
+      return response.data;
+    } else {
+      // Si no es un PDF, podría ser un error JSON
+      const errorText = await response.data.text();
+      try {
+        const errorData = JSON.parse(errorText);
+        throw new Error(errorData.detail || errorData.error || 'Error al generar etiquetas');
+      } catch {
+        throw new Error('Respuesta inválida del servidor');
+      }
+    }
+  } catch (error) {
+    if (error.response?.status === 403) {
+      throw new Error('No tiene permisos para imprimir etiquetas de esta carga');
+    }
+    if (error.response?.status === 404) {
+      throw new Error('Carga o item no encontrado');
+    }
+    throw error;
+  }
 }
 
 export async function descargarEtiquetasDeCarga(cargaId) {
-  const res = await api.get(`/api/cargas/${cargaId}/etiquetas/`, {
-    responseType: "blob",
-  });
-  return res.data;
+  try {
+    const response = await api.get(`/api/cargas/${cargaId}/etiquetas/`, {
+      responseType: "blob",
+    });
+    
+    if (response.data instanceof Blob && response.data.type === 'application/pdf') {
+      return response.data;
+    } else {
+      const errorText = await response.data.text();
+      try {
+        const errorData = JSON.parse(errorText);
+        throw new Error(errorData.detail || errorData.error || 'Error al generar etiquetas');
+      } catch {
+        throw new Error('Respuesta inválida del servidor');
+      }
+    }
+  } catch (error) {
+    if (error.response?.status === 403) {
+      throw new Error('No tiene permisos para imprimir etiquetas de esta carga');
+    }
+    if (error.response?.status === 404) {
+      throw new Error('Carga no encontrada');
+    }
+    throw error;
+  }
 }
 
 export function descargarBlobComoPDF(blob, filename) {
@@ -108,4 +148,17 @@ export function descargarBlobComoPDF(blob, filename) {
   a.click();
   a.remove();
   window.URL.revokeObjectURL(url);
+}
+
+export function manejarErrorPermisos(error) {
+  if (error.response?.status === 403) {
+    return 'No tiene permisos para realizar esta acción';
+  }
+  if (error.response?.status === 404) {
+    return 'Recurso no encontrado';
+  }
+  if (error.response?.data) {
+    return error.response.data.detail || error.response.data.error || 'Error del servidor';
+  }
+  return error.message || 'Error desconocido';
 }

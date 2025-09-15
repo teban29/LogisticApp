@@ -54,6 +54,8 @@ const FILTROS_FECHA = {
 export default function Cargas() {
   const { user } = useAuth();
   const isAdmin = user?.rol === "admin" || user?.rol === "operador";
+  const isOnlyAdmin = user?.rol === "admin";
+  const isCliente = user?.rol === "cliente";
   const [cargas, setCargas] = useState([]);
   const [count, setCount] = useState(0);
   const [page, setPage] = useState(1);
@@ -163,8 +165,13 @@ export default function Cargas() {
     }
   };
 
-  const imprimirEtiquetasItem = async (cargaId, itemId) => {
+  const imprimirEtiquetasItem = async (cargaId, itemId, cargaClienteId) => {
     try {
+      if (user.rol === "cliente" && user.cliente !== cargaClienteId) {
+        alert("No tiene permisos para imprimir etiquetas de esta carga");
+        return;
+      }
+
       const blob = await descargarEtiquetasPorItem(cargaId, itemId);
       descargarBlobComoPDF(
         blob,
@@ -172,17 +179,31 @@ export default function Cargas() {
       );
     } catch (e) {
       console.error(e);
-      alert("No se pudieron generar las etiquetas");
+      if (e.response?.status === 403) {
+        alert("No tiene permisos para imprimir etiquetas de esta carga");
+      } else {
+        alert("No se pudieron generar las etiquetas");
+      }
     }
   };
 
-  const imprimirEtiquetasCarga = async (cargaId) => {
+  const imprimirEtiquetasCarga = async (cargaId, cargaClienteId) => {
     try {
+      // Verificar permisos para clientes
+      if (user.rol === "cliente" && user.cliente !== cargaClienteId) {
+        alert("No tiene permisos para imprimir etiquetas de esta carga");
+        return;
+      }
+
       const blob = await descargarEtiquetasDeCarga(cargaId);
       descargarBlobComoPDF(blob, `etiquetas_carga_${cargaId}.pdf`);
     } catch (e) {
       console.error(e);
-      alert("No se pudieron generar las etiquetas de la carga.");
+      if (e.response?.status === 403) {
+        alert("No tiene permisos para imprimir etiquetas de esta carga");
+      } else {
+        alert("No se pudieron generar las etiquetas de la carga.");
+      }
     }
   };
 
@@ -524,7 +545,7 @@ export default function Cargas() {
                           title="Ver detalles">
                           <RiEyeLine className="text-lg" />
                         </button>
-                        {isAdmin && (
+                        {isOnlyAdmin && (
                           <button
                             onClick={() => handleEdit(c)}
                             className="p-2 text-gray-500 hover:text-green-600 hover:bg-green-50 rounded-lg transition-colors"
@@ -532,7 +553,7 @@ export default function Cargas() {
                             <RiEditLine className="text-lg" />
                           </button>
                         )}
-                        {isAdmin && (
+                        {isOnlyAdmin && (
                           <button
                             onClick={() => handleGenerate(c.id)}
                             className="p-2 text-gray-500 hover:text-orange-600 hover:bg-orange-50 rounded-lg transition-colors"
@@ -695,14 +716,19 @@ export default function Cargas() {
                       <RiDownloadLine />
                       Descargar factura
                     </a>
-                    <button
-                      onClick={() =>
-                        imprimirEtiquetasCarga(currentCargaDetail.id)
-                      }
-                      className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors">
-                      <RiPrinterLine />
-                      Imprimir todas las etiquetas
-                    </button>
+                    {!isCliente && (
+                      <button
+                        onClick={() =>
+                          imprimirEtiquetasCarga(
+                            currentCargaDetail.id,
+                            currentCargaDetail.cliente
+                          )
+                        }
+                        className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors">
+                        <RiPrinterLine />
+                        Imprimir todas las etiquetas
+                      </button>
+                    )}
                   </div>
 
                   {/* Vista previa de factura */}
@@ -795,14 +821,20 @@ export default function Cargas() {
                       <span className="text-sm text-gray-600">
                         Unidades generadas: {it.unidades_count}
                       </span>
-                      <button
-                        onClick={() =>
-                          imprimirEtiquetasItem(currentCargaDetail.id, it.id)
-                        }
-                        className="flex items-center gap-2 px-3 py-1.5 text-sm bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors">
-                        <RiPrinterLine />
-                        Imprimir etiquetas
-                      </button>
+                      {!isCliente && (
+                        <button
+                          onClick={() =>
+                            imprimirEtiquetasItem(
+                              currentCargaDetail.id,
+                              it.id,
+                              currentCargaDetail.cliente
+                            )
+                          }
+                          className="flex items-center gap-2 px-3 py-1.5 text-sm bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors">
+                          <RiPrinterLine />
+                          Imprimir etiquetas
+                        </button>
+                      )}
                     </div>
                   </div>
                 ))}

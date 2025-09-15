@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
+import { useAuth } from "../context/AuthContext";
 import {
   getCarga,
   descargarEtiquetasDeCarga,
@@ -21,15 +22,23 @@ import {
   RiFilePdfLine,
   RiImageLine,
   RiFileLine,
-  RiExternalLinkLine
+  RiExternalLinkLine,
+  RiCheckboxCircleLine
 } from "react-icons/ri";
 
 export default function CargaDetailPage() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const isCliente = user?.rol === "cliente";
+  const puedeImprimir =
+    user?.rol === "admin" ||
+    user?.rol === "operador" ||
+    (user?.rol === "cliente" && user?.cliente === carga?.cliente?.id);
   const [carga, setCarga] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
   const [printingAll, setPrintingAll] = useState(false);
   const [printingItems, setPrintingItems] = useState({});
 
@@ -51,33 +60,43 @@ export default function CargaDetailPage() {
 
   const handleImprimirTodas = async () => {
     setPrintingAll(true);
+    setError("");
     try {
       const blob = await descargarEtiquetasDeCarga(id);
       descargarBlobComoPDF(blob, `etiquetas_carga_${id}_completa.pdf`);
     } catch (e) {
       console.error(e);
-      alert("Error generando todas las etiquetas");
+      if (e.response?.status === 403) {
+        setError("No tiene permisos para imprimir etiquetas de esta carga");
+      } else {
+        setError("Error generando todas las etiquetas");
+      }
     } finally {
       setPrintingAll(false);
     }
   };
 
   const handleImprimirItem = async (itemId, itemName) => {
-    setPrintingItems(prev => ({ ...prev, [itemId]: true }));
+    setPrintingItems((prev) => ({ ...prev, [itemId]: true }));
+    setError("");
     try {
       const blob = await descargarEtiquetasPorItem(id, itemId);
       descargarBlobComoPDF(blob, `etiquetas_carga_${id}_${itemName}.pdf`);
     } catch (e) {
       console.error(e);
-      alert("Error generando etiquetas del item");
+      if (e.response?.status === 403) {
+        setError("No tiene permisos para imprimir etiquetas de este ítem");
+      } else {
+        setError("Error generando etiquetas del ítem");
+      }
     } finally {
-      setPrintingItems(prev => ({ ...prev, [itemId]: false }));
+      setPrintingItems((prev) => ({ ...prev, [itemId]: false }));
     }
   };
 
   const getFilePreview = (url) => {
     if (!url) return null;
-    
+
     const lower = url.toLowerCase();
     if (lower.match(/\.(png|jpg|jpeg|gif|webp)$/)) {
       return (
@@ -96,8 +115,7 @@ export default function CargaDetailPage() {
               href={url}
               target="_blank"
               rel="noopener noreferrer"
-              className="flex items-center gap-2 px-4 py-2 text-sm text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-lg transition-colors"
-            >
+              className="flex items-center gap-2 px-4 py-2 text-sm text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-lg transition-colors">
               <RiExternalLinkLine />
               Abrir en nueva pestaña
             </a>
@@ -105,8 +123,8 @@ export default function CargaDetailPage() {
         </div>
       );
     }
-    
-    if (lower.endsWith('.pdf')) {
+
+    if (lower.endsWith(".pdf")) {
       return (
         <div className="mt-3 p-4 border rounded-lg bg-gray-50">
           <div className="flex items-center gap-3 mb-3">
@@ -114,7 +132,7 @@ export default function CargaDetailPage() {
             <div>
               <div className="font-medium">Documento PDF</div>
               <div className="text-sm text-gray-600">
-                {url.split('/').pop()}
+                {url.split("/").pop()}
               </div>
             </div>
           </div>
@@ -123,8 +141,7 @@ export default function CargaDetailPage() {
               href={url}
               target="_blank"
               rel="noopener noreferrer"
-              className="flex items-center gap-2 px-4 py-2 text-sm text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-lg transition-colors"
-            >
+              className="flex items-center gap-2 px-4 py-2 text-sm text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-lg transition-colors">
               <RiExternalLinkLine />
               Abrir PDF
             </a>
@@ -132,16 +149,14 @@ export default function CargaDetailPage() {
         </div>
       );
     }
-    
+
     return (
       <div className="mt-3 p-4 border rounded-lg bg-gray-50">
         <div className="flex items-center gap-3">
           <RiFileLine className="text-gray-600 text-2xl" />
           <div>
             <div className="font-medium">Archivo adjunto</div>
-            <div className="text-sm text-gray-600">
-              {url.split('/').pop()}
-            </div>
+            <div className="text-sm text-gray-600">{url.split("/").pop()}</div>
           </div>
         </div>
         <div className="flex justify-center mt-3">
@@ -149,8 +164,7 @@ export default function CargaDetailPage() {
             href={url}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex items-center gap-2 px-4 py-2 text-sm text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-lg transition-colors"
-          >
+            className="flex items-center gap-2 px-4 py-2 text-sm text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-lg transition-colors">
             <RiExternalLinkLine />
             Abrir archivo
           </a>
@@ -175,12 +189,15 @@ export default function CargaDetailPage() {
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
           <RiErrorWarningLine className="text-4xl text-red-600 mx-auto mb-4" />
-          <h2 className="text-xl font-semibold text-gray-900 mb-2">Error al cargar</h2>
-          <p className="text-gray-600 mb-4">{error || "No se encontró la carga solicitada"}</p>
+          <h2 className="text-xl font-semibold text-gray-900 mb-2">
+            Error al cargar
+          </h2>
+          <p className="text-gray-600 mb-4">
+            {error || "No se encontró la carga solicitada"}
+          </p>
           <button
             onClick={() => navigate(-1)}
-            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors mx-auto"
-          >
+            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors mx-auto">
             <RiArrowLeftLine />
             Volver atrás
           </button>
@@ -196,31 +213,51 @@ export default function CargaDetailPage() {
         <div>
           <button
             onClick={() => navigate(-1)}
-            className="flex items-center gap-2 text-gray-600 hover:text-gray-800 mb-4 transition-colors"
-          >
+            className="flex items-center gap-2 text-gray-600 hover:text-gray-800 mb-4 transition-colors">
             <RiArrowLeftLine />
             <span>Volver atrás</span>
           </button>
-          <h1 className="text-2xl font-bold text-gray-900">Carga #{carga.id}</h1>
+          <h1 className="text-2xl font-bold text-gray-900">
+            Carga #{carga.id}
+          </h1>
           <p className="text-sm text-gray-600 mt-1">
             Detalles completos de la carga
           </p>
         </div>
-        <div className="flex gap-3">
-          <button
-            onClick={handleImprimirTodas}
-            disabled={printingAll}
-            className="flex items-center gap-2 px-4 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {printingAll ? (
-              <RiLoader4Line className="animate-spin" />
-            ) : (
-              <RiPrinterLine />
-            )}
-            {printingAll ? "Generando..." : "Imprimir todas"}
-          </button>
-        </div>
+        {puedeImprimir && (
+          <div className="flex gap-3">
+            <button
+              onClick={handleImprimirTodas}
+              disabled={printingAll}
+              className="flex items-center gap-2 px-4 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+              {printingAll ? (
+                <RiLoader4Line className="animate-spin" />
+              ) : (
+                <RiPrinterLine />
+              )}
+              {printingAll ? "Generando..." : "Imprimir todas"}
+            </button>
+          </div>
+        )}
       </div>
+
+      {error && (
+        <div className="mb-6 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
+          <div className="flex items-center gap-2">
+            <RiErrorWarningLine />
+            {error}
+          </div>
+        </div>
+      )}
+
+      {success && (
+        <div className="mb-6 bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded">
+          <div className="flex items-center gap-2">
+            <RiCheckboxCircleLine />
+            {success}
+          </div>
+        </div>
+      )}
 
       {/* Información de la carga */}
       <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden mb-6">
@@ -229,7 +266,7 @@ export default function CargaDetailPage() {
             <RiFileTextLine />
             Información de la carga
           </h2>
-          
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {/* Cliente */}
             <div className="p-4 bg-gray-50 rounded-lg">
@@ -237,7 +274,9 @@ export default function CargaDetailPage() {
                 <RiUserLine className="text-blue-600" />
                 <span className="font-medium">Cliente</span>
               </div>
-              <p className="text-gray-900">{carga.cliente_nombre || carga.cliente}</p>
+              <p className="text-gray-900">
+                {carga.cliente_nombre || carga.cliente}
+              </p>
             </div>
 
             {/* Proveedor */}
@@ -246,7 +285,9 @@ export default function CargaDetailPage() {
                 <RiTruckLine className="text-green-600" />
                 <span className="font-medium">Proveedor</span>
               </div>
-              <p className="text-gray-900">{carga.proveedor_nombre || carga.proveedor}</p>
+              <p className="text-gray-900">
+                {carga.proveedor_nombre || carga.proveedor}
+              </p>
             </div>
 
             {/* Remisión */}
@@ -311,7 +352,9 @@ export default function CargaDetailPage() {
 
           <div className="space-y-4">
             {(carga.items || []).map((it) => (
-              <div key={it.id} className="p-5 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
+              <div
+                key={it.id}
+                className="p-5 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
                 <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
                   {/* Información del producto */}
                   <div className="flex-1">
@@ -335,20 +378,28 @@ export default function CargaDetailPage() {
                   </div>
 
                   {/* Acciones */}
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => handleImprimirItem(it.id, it.producto.nombre)}
-                      disabled={printingItems[it.id]}
-                      className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      {printingItems[it.id] ? (
-                        <RiLoader4Line className="animate-spin" />
-                      ) : (
-                        <RiPrinterLine />
-                      )}
-                      {printingItems[it.id] ? "Generando..." : "Etiquetas"}
-                    </button>
-                  </div>
+                  {puedeImprimir && (
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() =>
+                          handleImprimirItem(it.id, it.producto.nombre)
+                        }
+                        disabled={printingItems[it.id] || !it.unidades_count}
+                        className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                        title={
+                          !it.unidades_count
+                            ? "Primero debe generar las unidades"
+                            : "Imprimir etiqueta"
+                        }>
+                        {printingItems[it.id] ? (
+                          <RiLoader4Line className="animate-spin" />
+                        ) : (
+                          <RiPrinterLine />
+                        )}
+                        {printingItems[it.id] ? "Generando..." : "Etiquetas"}
+                      </button>
+                    </div>
+                  )}
                 </div>
               </div>
             ))}

@@ -24,7 +24,7 @@ from rest_framework.response import Response
 
 # Local imports
 from .models import Envio, EnvioItem, EscaneoEntrega
-from .permissions import IsAdminRole
+from .permissions import IsAdminRole, IsAdminOrOperadorForEnvios, PuedeVerEnvio, IsAdminOrConductor
 from .serializers import EnvioSerializer, AgregarItemSerializer, EnvioItemSerializer, EstadoVerificacionSerializer, EscaneoEntregaSerializer
 from cargas.models import Unidad, Carga, CargaItem
 from partners.models import Cliente
@@ -33,18 +33,26 @@ from accounts.permissions import EsClienteYTieneCliente, SoloSuCliente
 class EnvioViewSet(viewsets.ModelViewSet):
     queryset = Envio.objects.select_related('cliente').prefetch_related(
         Prefetch('items', queryset=EnvioItem.objects.select_related('unidad'))
-    ).order_by('-created_at')
+    ).order_by('-created_at')  
     
     serializer_class = EnvioSerializer
     
     def get_permissions(self):
         """
         Permisos diferenciados por acción:
-        - List/Retrieve: Admin o cliente con cliente asignado
+        - List/Retrieve: Admin y operador pueden ver
         - Create/Update/Delete: Solo admin
+        - Acciones de verificación: Admin y conductor
         """
         if self.action in ['list', 'retrieve']:
-            permission_classes = [EsClienteYTieneCliente | IsAdminRole]
+            permission_classes = [PuedeVerEnvio]
+        elif self.action == 'create':
+            permission_classes = [IsAdminRole]
+        elif self.action in ['update', 'partial_update']:
+            permission_classes = [IsAdminOrConductor]
+        elif self.action in ['estado_verificacion', 'items_pendientes', 'escanear_item', 'forzar_completar_entrega']:
+            # Permisos para acciones de verificación
+            permission_classes = [IsAdminOrConductor]
         else:
             permission_classes = [IsAdminRole]
         return [permission() for permission in permission_classes]
@@ -107,6 +115,23 @@ class EnvioViewSet(viewsets.ModelViewSet):
             }
         
         return response
+    
+    def partial_update(self, request, *args, **kwargs):
+        """Permitir que el conductor solo cambie el estado"""
+        user = request.user
+        envio = self.get_object()
+
+        # Si es conductor, solo puede modificar 'estado'
+        if user.rol == "conductor":
+            allowed_fields = {"estado", "observaciones"}
+            if not set(request.data.keys()).issubset(allowed_fields):
+                return Response(
+                    {"detail": "Solo puedes cambiar el estado."},
+                    status=status.HTTP_403_FORBIDDEN
+                )
+
+        return super().partial_update(request, *args, **kwargs)
+    
     @action(detail=True, methods=['post'])
     def agregar_item(self, request, pk=None):
         """Agrega un item individual al envío mediante código de barras"""
