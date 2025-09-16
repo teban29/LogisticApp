@@ -10,6 +10,8 @@ urlpatterns = [
     path('api/partners/', include('partners.urls')),
     path('api/', include('cargas.urls')),
     path('api/', include('envios.urls')),
+    path('api/', include('dashboard.urls')),
+    
 ]
 
 if settings.DEBUG:

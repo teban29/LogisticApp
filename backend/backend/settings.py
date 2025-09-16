@@ -48,6 +48,7 @@ INSTALLED_APPS = [
     'partners',
     'cargas',
     'envios',
+    'dashboard',
 ]
 
 MIDDLEWARE = [

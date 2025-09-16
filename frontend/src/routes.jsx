@@ -11,11 +11,7 @@ import Cargas from "./pages/Cargas";
 import CargaDetailPage from "./pages/CargaDetailPage";
 import Envios from "./pages/Envios";
 import EnvioDetailPage from "./pages/EnvioDetailPage";
-// Placeholders (puedes crearlos vacíos por ahora)
-const Dashboard = () => <div className="text-lg">Bienvenido 👋</div>;
-const Clientes = () => <div>Clientes</div>;
-const Proveedores = () => <div>Proveedores</div>;
-const Configuracion = () => <div>Configuración</div>;
+import Dashboard from "./pages/Dashboard";
 
 export const router = createBrowserRouter([
   { path: "/login", element: <Login /> },
@@ -26,7 +22,7 @@ export const router = createBrowserRouter([
       {
         element: <AppLayout />,
         children: [
-          { path: "/", element: <Dashboard /> },
+          {element: <RoleProtected allowedRoles={["admin", "operador","conductor", "cliente"]} />, children: [{ path: "/", element: <Dashboard /> }]},
           {
             element: <RoleProtected allowedRoles={["admin"]} />,
             children: [{ path: "/usuarios", element: <Users /> }],
