@@ -128,6 +128,92 @@ export const validarUnidadParaEnvio = async (codigoBarra, clienteId) => {
   }
 };
 
+// NUEVA FUNCIÓN: Obtener información del producto SIN validaciones de cliente
+export const obtenerInfoProductoPorCodigo = async (codigoBarra) => {
+  try {
+    // Primero intentar con el endpoint específico
+    try {
+      const response = await api.get(
+        `/api/cargas/unidades/por-codigo/?codigo_barra=${codigoBarra}`
+      );
+      const unidad = response.data;
+
+      console.log("DEBUG - Obteniendo info producto:", unidad);
+
+      // Extraer el nombre del producto sin validaciones
+      let productoNombre = "Producto";
+      let precioReferencia = 0;
+
+      if (unidad.carga_item && unidad.carga_item.producto) {
+        productoNombre = unidad.carga_item.producto.nombre || "Producto";
+        precioReferencia = unidad.carga_item.producto.precio_referencia || 0;
+      } else if (unidad.producto_nombre) {
+        productoNombre = unidad.producto_nombre;
+      }
+
+      return {
+        encontrado: true,
+        producto_nombre: productoNombre,
+        precio_referencia: precioReferencia,
+        codigo_barra: codigoBarra,
+      };
+    } catch (specificError) {
+      console.log("Endpoint específico falló, usando general...", specificError);
+      return await obtenerInfoProductoGeneral(codigoBarra);
+    }
+  } catch (err) {
+    console.error("Error al obtener info del producto:", err);
+    return { 
+      encontrado: false, 
+      producto_nombre: "Producto", 
+      error: "Error al consultar producto" 
+    };
+  }
+};
+
+// Función helper para endpoint general (sin validaciones)
+const obtenerInfoProductoGeneral = async (codigoBarra) => {
+  try {
+    const response = await api.get(`/api/cargas/unidades/`);
+    const todasLasUnidades = response.data.results || response.data;
+
+    const unidad = todasLasUnidades.find((u) => u.codigo_barra === codigoBarra);
+
+    if (!unidad) {
+      return { 
+        encontrado: false, 
+        producto_nombre: "Producto", 
+        error: "Código de barras no encontrado" 
+      };
+    }
+
+    // Extraer nombre del producto sin validaciones
+    let productoNombre = "Producto";
+    let precioReferencia = 0;
+
+    if (unidad.carga_item && unidad.carga_item.producto) {
+      productoNombre = unidad.carga_item.producto.nombre || "Producto";
+      precioReferencia = unidad.carga_item.producto.precio_referencia || 0;
+    } else if (unidad.producto_nombre) {
+      productoNombre = unidad.producto_nombre;
+    }
+
+    return {
+      encontrado: true,
+      producto_nombre: productoNombre,
+      precio_referencia: precioReferencia,
+      codigo_barra: codigoBarra,
+    };
+  } catch (err) {
+    console.error("Error en consulta general:", err);
+    return { 
+      encontrado: false, 
+      producto_nombre: "Producto", 
+      error: "Error al consultar producto" 
+    };
+  }
+};
+
 // Función helper corregida
 const validarConEndpointGeneral = async (codigoBarra, clienteId) => {
   try {
@@ -208,5 +294,10 @@ export const obtenerItemsPendientes = async (envioId) => {
 
 export const forzarCompletarEntrega = async (envioId) => {
   const response = await api.post(`/api/envios/${envioId}/forzar-completar-entrega/`);
+  return response.data;
+};
+
+export const escaneoMasivo = async (payload) => {
+  const response = await api.post("/api/envios/escaneo-masivo/", payload);
   return response.data;
 };

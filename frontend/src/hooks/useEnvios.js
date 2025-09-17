@@ -12,7 +12,8 @@ import {
   escanearItemEntrega,
   obtenerEstadoVerificacion,
   obtenerItemsPendientes,
-  forzarCompletarEntrega
+  forzarCompletarEntrega,
+  escaneoMasivo
 } from "../api/envios";
 
 export const useEnvios = () => {
@@ -171,6 +172,20 @@ export const useEnvios = () => {
     }
   }, []);
 
+  const procesarEscaneoMasivo = useCallback(async (payload) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const data = await escaneoMasivo(payload);
+      await fetchEnvios();
+      return data;
+    } catch (err) {
+      return handleError(err);
+    } finally {
+      setLoading(false);
+    }
+  }, [fetchEnvios]);
+
   // Nuevas funciones para verificación de entrega
   const escanearItemVerificacion = useCallback(async (envioId, codigoBarra, escaneadoPor = '') => {
     setLoading(true);
@@ -260,6 +275,7 @@ export const useEnvios = () => {
     obtenerCargasPorCliente,
     cambiarEstado,
     getEnvio,
+    procesarEscaneoMasivo,
     escanearItemVerificacion,
     obtenerVerificacionEstado,
     obtenerItemsPendientesVerificacion,

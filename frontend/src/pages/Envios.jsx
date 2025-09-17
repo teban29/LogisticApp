@@ -4,6 +4,7 @@ import EnvioFormModal from "../components/EnvioFormModal";
 import ConfirmDialog from "../components/ConfirmDialog";
 import { useAuth } from "../context/AuthContext";
 import EnvioDetailModal from "../components/EnvioDetailModal";
+import EscaneoMasivoModal from "../components/EscaneoMasivoModal";
 import VerificacionEntregaModal from "../components/VerificacionEntregaModal"; // Importar el nuevo modal
 import { useNavigate } from "react-router-dom";
 import {
@@ -81,6 +82,7 @@ export default function Envios() {
   const [debouncedSearch, setDebouncedSearch] = useState("");
 
   const [openForm, setOpenForm] = useState(false);
+  const [openEscaneoMasivo, setOpenEscaneoMasivo] = useState(false);
   const [editing, setEditing] = useState(null);
   const [openDelete, setOpenDelete] = useState(false);
   const [deleting, setDeleting] = useState(null);
@@ -237,6 +239,16 @@ export default function Envios() {
             )}
             <span className="hidden sm:inline">Actualizar</span>
           </button>
+
+          {isAdmin && (
+            <button
+            onClick={() => setOpenEscaneoMasivo(true)}
+            className="flex items-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors">
+              <RiBarcodeLine className="text-lg" />
+              <span>Escaneo masivo</span>
+            </button>
+          )}
+
           {isAdmin && (
             <button
               onClick={handleCreate}
@@ -603,6 +615,13 @@ export default function Envios() {
         onClose={() => setOpenForm(false)}
         onSubmit={handleSubmit}
         editing={editing}
+      />
+
+      {/* Modal de escaneo masivo */}
+      <EscaneoMasivoModal
+        open={openEscaneoMasivo}
+        onClose={() => setOpenEscaneoMasivo(false)}
+        onSuccess={fetchData}
       />
 
       {/* Modal de detalle */}
