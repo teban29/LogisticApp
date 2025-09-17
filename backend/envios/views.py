@@ -7,6 +7,7 @@ from re import search
 from django.conf import settings
 from django.db.models import Prefetch, Q
 from django.http import HttpResponse
+from django.template import context
 from django.utils import timezone
 
 # Third-party imports
@@ -19,16 +20,17 @@ from reportlab.platypus import Table, TableStyle, Paragraph
 
 # Django REST Framework imports
 from rest_framework import viewsets, status, decorators
-from rest_framework.decorators import action
+from rest_framework.decorators import action, permission_classes, api_view
 from rest_framework.response import Response
 
 # Local imports
 from .models import Envio, EnvioItem, EscaneoEntrega
 from .permissions import IsAdminRole, IsAdminOrOperadorForEnvios, PuedeVerEnvio, IsAdminOrConductor
-from .serializers import EnvioSerializer, AgregarItemSerializer, EnvioItemSerializer, EstadoVerificacionSerializer, EscaneoEntregaSerializer
+from .serializers import EnvioSerializer, AgregarItemSerializer, EnvioItemSerializer, EstadoVerificacionSerializer, EscaneoEntregaSerializer,EscaneoMasivoSerializer
 from cargas.models import Unidad, Carga, CargaItem
 from partners.models import Cliente
 from accounts.permissions import EsClienteYTieneCliente, SoloSuCliente
+from cargas.permissions import IsAdminOrOperador
 
 class EnvioViewSet(viewsets.ModelViewSet):
     queryset = Envio.objects.select_related('cliente').prefetch_related(
@@ -942,6 +944,53 @@ class EnvioViewSet(viewsets.ModelViewSet):
             'total_pendientes': items_pendientes.count(),
             'total_items': envio.items.count()
         })
+        
+    @action(detail=False, methods=['post'], url_path='escaneo-masivo')
+    def escaneo_masivo(self, request):
+        """
+        Endpoint para escaneo masivo de unidades.
+        Agrupa automáticamente por cliente y crea un envío por cada uno.
+        """
+        print("=" * 50)
+        print("DEBUG: Escaneo masivo action CALLED!")
+        print(f"DEBUG: Method: {request.method}")
+        print(f"DEBUG: User: {request.user}")
+        print(f"DEBUG: Data: {request.data}")
+        print("=" * 50)
+            
+        try:
+            serializer = EscaneoMasivoSerializer(data=request.data, context={'request': request})
+                
+            if serializer.is_valid():
+                try:
+                    resultado = serializer.save()
+                    print(f"DEBUG: Success! Created {len(resultado['envios_creados'])} envios")
+                    return Response({
+                        'message': f'Proceso completado. Se crearon {len(resultado["envios_creados"])} envíos.',
+                        'envios_creados_ids': resultado['envios_creados']
+                    }, status=status.HTTP_201_CREATED)
+                        
+                except Exception as e:
+                    print(f"DEBUG: Error in serializer.save(): {str(e)}")
+                    import traceback
+                    traceback.print_exc()
+                    return Response(
+                        {'error': f'Error durante la creación de envíos: {str(e)}'},
+                            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                        )
+            else:
+                print(f"DEBUG: Serializer invalid: {serializer.errors}")
+                return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+                    
+        except Exception as e:
+            print(f"DEBUG: Unexpected error in action: {str(e)}")
+            import traceback
+            traceback.print_exc()
+            return Response(
+                {'error': 'Error interno del servidor'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+        
 
 class EnvioItemViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = EnvioItem.objects.select_related(
@@ -959,3 +1008,4 @@ class EnvioItemViewSet(viewsets.ReadOnlyModelViewSet):
             queryset = queryset.filter(envio_id=envio_id)
         
         return queryset
+    

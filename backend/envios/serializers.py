@@ -236,9 +236,6 @@ class EnvioSerializer(serializers.ModelSerializer):
                 envio.estado = 'pendiente'
                 envio.save(update_fields=['estado'])
 
-                
-    
-
 
 class AgregarItemSerializer(serializers.Serializer):
     codigo_barra = serializers.CharField(max_length=64)
@@ -269,6 +266,103 @@ class AgregarItemSerializer(serializers.Serializer):
                 pass  # Ya se validó que existe
         
         return value
+    
+
+class EscaneoMasivoSerializer(serializers.Serializer):
+    """Serializer para procesar una lista de codigos de barras y crear envios automaticamente agrupados por cliente."""
+    codigos_barras = serializers.ListField(
+        child=serializers.CharField(max_length=64),
+        min_length=1,
+        help_text="Lista de codigos de barras escaneados."
+    )
+    conductor = serializers.CharField(max_length=100, required=False, default="")
+    placa_vehiculo = serializers.CharField(max_length=100, required=False, default="")
+    origen = serializers.CharField(max_length=100, required=False, default="")
+    
+    def validate_codigos_barras(self, value):
+        """Valida que los codigos de barras existan y estén disponibles"""
+        unidades_existentes = Unidad.objects.filter(codigo_barra__in=value).values_list('codigo_barra', flat=True)
+        codigos_inexistentes = set(value) - set(unidades_existentes)
+        
+        if codigos_inexistentes:
+            raise serializers.ValidationError(f"Codigos no encontrados: {list(codigos_inexistentes)}")
+        
+        # Validación de disponibilidad
+        unidades_no_disponibles = Unidad.objects.filter(
+            codigo_barra__in=value
+        ).exclude(estado='disponible').values_list('codigo_barra', flat=True)
+        
+        if unidades_no_disponibles:
+            raise serializers.ValidationError(
+                f"Unidades no disponibles: {list(unidades_no_disponibles)}"
+            )
+        
+        return value
+    
+    @transaction.atomic
+    def create(self, validated_data):
+        # Obtener los datos del contexto (forma correcta)
+        request = self.context.get('request')
+        codigos = validated_data['codigos_barras']
+        
+        # Usar los datos validados, no request.data
+        datos_envio_base = {
+            'conductor': validated_data.get('conductor', ''),
+            'placa_vehiculo': validated_data.get('placa_vehiculo', ''),
+            'origen': validated_data.get('origen', '')
+        }
+        
+        # Obtener y agrupar unidades por cliente
+        unidades = Unidad.objects.select_related(
+            'carga_item__carga__cliente'
+        ).filter(codigo_barra__in=codigos)
+        
+        # Agrupar unidades por cliente_id
+        unidades_por_cliente = {}
+        for unidad in unidades:
+            cliente_id = unidad.carga_item.carga.cliente_id
+            if cliente_id not in unidades_por_cliente:
+                unidades_por_cliente[cliente_id] = []
+            unidades_por_cliente[cliente_id].append(unidad)
+            
+        # Crear un envio por cada cliente
+        envios_creados = []
+        for cliente_id, lista_unidades in unidades_por_cliente.items():
+            cliente = Cliente.objects.get(id=cliente_id)
+            
+            # Crear el envio para este cliente
+            envio = Envio.objects.create(
+                cliente=cliente,
+                **datos_envio_base
+            )
+            envios_creados.append(envio.id)
+            
+            # Crear los EnvioItem y vincular las unidades
+            items_a_crear = []
+            ids_unidades_a_reservar = []
+            
+            for unidad in lista_unidades:
+                # Determinar valor unitario (puedes cambiar esta lógica)
+                valor_unitario = 0
+                
+                items_a_crear.append(EnvioItem(
+                    envio=envio,
+                    unidad=unidad,
+                    valor_unitario=valor_unitario
+                ))
+                ids_unidades_a_reservar.append(unidad.id)
+                
+            # Crear todos los items de este envio de una vez
+            if items_a_crear:
+                EnvioItem.objects.bulk_create(items_a_crear)
+                # Actualizar estado de todas las unidades de este envio a 'reservada'
+                Unidad.objects.filter(id__in=ids_unidades_a_reservar).update(estado='reservada')
+                
+                # Actualizar estado del envio
+                envio.estado = 'pendiente'
+                envio.save(update_fields=['estado'])
+        
+        return {'envios_creados': envios_creados}
 
 class EscaneoEntregaSerializer(serializers.Serializer):
     codigo_barra = serializers.CharField(max_length=64)
