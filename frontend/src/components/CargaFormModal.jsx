@@ -40,9 +40,39 @@ export default function CargaFormModal({
   const [loadingOptions, setLoadingOptions] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
-  const [hasChanges, setHasChanges] = useState(false); // ← Nuevo estado
+  const [hasChanges, setHasChanges] = useState(false);
   const [proveedorSearch, setProveedorSearch] = useState("");
   const [showProveedorDropdown, setShowProveedorDropdown] = useState(false);
+
+  // Función para obtener TODOS los proveedores de un cliente (todas las páginas)
+  const fetchAllProvidersForClient = async (clientId) => {
+    if (!clientId) return [];
+    
+    try {
+      let allProviders = [];
+      let currentPage = 1;
+      let hasNextPage = true;
+
+      while (hasNextPage) {
+        const pData = await listProviders({
+          cliente_id: clientId,
+          page: currentPage,
+        });
+        
+        const provList = pData?.results || pData || [];
+        allProviders = [...allProviders, ...provList];
+        
+        // Verificar si hay más páginas
+        hasNextPage = pData.next !== null && pData.next !== undefined;
+        currentPage++;
+      }
+
+      return allProviders;
+    } catch (err) {
+      console.error("Error fetching providers for client:", err);
+      return [];
+    }
+  };
 
   // Cargar clientes cuando se abre el modal
   useEffect(() => {
@@ -72,7 +102,7 @@ export default function CargaFormModal({
     };
   }, [open]);
 
-  // Cuando cambia el cliente, cargar proveedores asignados a ese cliente
+  // Cuando cambia el cliente, cargar TODOS los proveedores asignados a ese cliente
   useEffect(() => {
     let mounted = true;
     const loadProvidersForClient = async () => {
@@ -83,26 +113,28 @@ export default function CargaFormModal({
         }
         return;
       }
+      
       setLoadingOptions(true);
       try {
-        const pData = await listProviders({
-          cliente_id: form.cliente,
-          page: 1,
-        });
-        const provList = pData?.results || pData || [];
+        // Obtener TODOS los proveedores del cliente
+        const allProviders = await fetchAllProvidersForClient(form.cliente);
+        
         if (!mounted) return;
+        
         setProveedoresOptions(
-          provList.map((p) => ({
+          allProviders.map((p) => ({
             value: p.id,
             label: `${p.nombre} — ${p.nit || ""}`,
+            raw: p // Guardar el objeto completo para referencia
           }))
         );
-        if (!provList.some((p) => String(p.id) === String(form.proveedor))) {
+        
+        if (!allProviders.some((p) => String(p.id) === String(form.proveedor))) {
           setForm((f) => ({ ...f, proveedor: "" }));
           setProveedorSearch("");
         } else {
           // Actualizar el texto de búsqueda con el proveedor seleccionado
-          const selectedProvider = provList.find((p) => String(p.id) === String(form.proveedor));
+          const selectedProvider = allProviders.find((p) => String(p.id) === String(form.proveedor));
           if (selectedProvider) {
             setProveedorSearch(selectedProvider.nombre);
           }
@@ -117,6 +149,7 @@ export default function CargaFormModal({
         if (mounted) setLoadingOptions(false);
       }
     };
+    
     loadProvidersForClient();
     return () => {
       mounted = false;
@@ -137,7 +170,7 @@ export default function CargaFormModal({
       setItems([{ producto_nombre: "", producto_sku: "", cantidad: 1 }]);
       setError("");
       setProveedoresOptions([]);
-      setHasChanges(false); // ← Resetear cambios al cerrar
+      setHasChanges(false);
       setProveedorSearch("");
       setShowProveedorDropdown(false);
     }
@@ -162,6 +195,11 @@ export default function CargaFormModal({
           cantidad: it.cantidad || 1,
         }))
       );
+      
+      // Si estamos editando, establecer el texto de búsqueda con el nombre del proveedor
+      if (editing.proveedor_nombre) {
+        setProveedorSearch(editing.proveedor_nombre);
+      }
     } else {
       setForm({
         cliente: "",
@@ -172,6 +210,7 @@ export default function CargaFormModal({
         auto_generar_unidades: true,
       });
       setItems([{ producto_nombre: "", producto_sku: "", cantidad: 1 }]);
+      setProveedorSearch("");
     }
   }, [editing, open]);
 
@@ -247,7 +286,7 @@ export default function CargaFormModal({
   // Seleccionar un proveedor de la lista
   const selectProveedor = (proveedor) => {
     setForm((f) => ({ ...f, proveedor: proveedor.value }));
-    setProveedorSearch(proveedor.label.split(" — ")[0]); // Solo mostrar el nombre, no el NIT
+    setProveedorSearch(proveedor.raw.nombre); // Usar el nombre directamente del objeto
     setShowProveedorDropdown(false);
   };
 
@@ -357,8 +396,8 @@ export default function CargaFormModal({
       onClose={onClose}
       title={editing ? "Editar carga" : "Crear carga"}
       size="lg"
-      preventClose={hasChanges && !saving} // ← Nueva prop
-      closeConfirmationMessage="¿Está seguro que desea salir? Se perderán los cambios no guardados de la carga." // ← Nueva prop
+      preventClose={hasChanges && !saving}
+      closeConfirmationMessage="¿Está seguro que desea salir? Se perderán los cambios no guardados de la carga."
     >
       {error && (
         <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-700 rounded-lg flex items-center">
@@ -427,10 +466,10 @@ export default function CargaFormModal({
                       onClick={() => selectProveedor(proveedor)}
                       className="w-full text-left px-4 py-2.5 hover:bg-blue-50 hover:text-blue-700 transition-colors border-b border-gray-100 last:border-b-0"
                     >
-                      <div className="font-medium">{proveedor.label.split(" — ")[0]}</div>
-                      {proveedor.label.includes(" — ") && (
+                      <div className="font-medium">{proveedor.raw.nombre}</div>
+                      {proveedor.raw.nit && (
                         <div className="text-sm text-gray-500">
-                          NIT: {proveedor.label.split(" — ")[1]}
+                          NIT: {proveedor.raw.nit}
                         </div>
                       )}
                     </button>

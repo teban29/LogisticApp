@@ -13,6 +13,7 @@ import {
   RiCloseLine,
   RiSaveLine,
   RiLoader4Line,
+  RiCheckboxMultipleLine,
 } from "react-icons/ri";
 
 const initial = {
@@ -33,29 +34,46 @@ export default function ClientFormModal({ open, onClose, onSubmit, editing }) {
   const [error, setError] = useState("");
   const [providerOptions, setProviderOptions] = useState([]);
   const [loadingProviders, setLoadingProviders] = useState(false);
-  const [hasChanges, setHasChanges] = useState(false); // ← Nuevo estado
+  const [hasChanges, setHasChanges] = useState(false);
 
-  useEffect(() => {
-    // cargar proveedores para el multiselect
-    const fetchProviders = async () => {
-      setLoadingProviders(true);
-      try {
+  // Función para obtener TODOS los proveedores (todas las páginas)
+  const fetchAllProviders = async () => {
+    setLoadingProviders(true);
+    try {
+      let allProviders = [];
+      let currentPage = 1;
+      let hasNextPage = true;
+
+      while (hasNextPage) {
         const data = await listProviders({
-          page: 1,
+          page: currentPage,
           search: "",
           ordering: "nombre",
         });
-        const list = data.results || data;
-        setProviderOptions(
-          list.map((p) => ({ value: p.id, label: `${p.nombre} — ${p.nit}` }))
-        );
-      } catch (err) {
-        setProviderOptions([]);
-      } finally {
-        setLoadingProviders(false);
+        
+        // Asumiendo que la API devuelve results y next
+        const results = data.results || data;
+        allProviders = [...allProviders, ...results];
+        
+        // Verificar si hay más páginas
+        hasNextPage = data.next !== null;
+        currentPage++;
       }
-    };
-    if (open) fetchProviders();
+
+      setProviderOptions(
+        allProviders.map((p) => ({ value: p.id, label: `${p.nombre} — ${p.nit}` }))
+      );
+    } catch (err) {
+      console.error("Error fetching providers:", err);
+      setProviderOptions([]);
+    } finally {
+      setLoadingProviders(false);
+    }
+  };
+
+  useEffect(() => {
+    // cargar todos los proveedores al abrir el modal
+    if (open) fetchAllProviders();
   }, [open]);
 
   useEffect(() => {
@@ -75,7 +93,6 @@ export default function ClientFormModal({ open, onClose, onSubmit, editing }) {
     }
   }, [editing, open, isEdit]);
 
-  // ← Nuevo useEffect para detectar cambios
   useEffect(() => {
     if (open) {
       const initialForm = isEdit
@@ -108,6 +125,14 @@ export default function ClientFormModal({ open, onClose, onSubmit, editing }) {
     setForm((f) => ({
       ...f,
       proveedores: (selected || []).map((s) => s.value),
+    }));
+  };
+
+  // Función para seleccionar todos los proveedores
+  const handleSelectAllProviders = () => {
+    setForm((f) => ({
+      ...f,
+      proveedores: providerOptions.map((p) => p.value),
     }));
   };
 
@@ -181,8 +206,8 @@ export default function ClientFormModal({ open, onClose, onSubmit, editing }) {
       onClose={onClose}
       title={isEdit ? "Editar cliente" : "Crear cliente"}
       size="lg"
-      preventClose={hasChanges && !saving} // ← Nueva prop
-      closeConfirmationMessage="¿Está seguro que desea salir? Se perderán los cambios no guardados del cliente." // ← Nueva prop
+      preventClose={hasChanges && !saving}
+      closeConfirmationMessage="¿Está seguro que desea salir? Se perderán los cambios no guardados del cliente."
     >
       {error && (
         <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-700 rounded-lg flex items-center">
@@ -312,9 +337,20 @@ export default function ClientFormModal({ open, onClose, onSubmit, editing }) {
 
           {/* Proveedores asignados */}
           <div className="md:col-span-2">
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Proveedores asignados
-            </label>
+            <div className="flex justify-between items-center mb-2">
+              <label className="block text-sm font-medium text-gray-700">
+                Proveedores asignados
+              </label>
+              <button
+                type="button"
+                onClick={handleSelectAllProviders}
+                className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 font-medium px-2 py-1 rounded hover:bg-blue-50 transition-colors"
+                disabled={loadingProviders || providerOptions.length === 0}
+              >
+                <RiCheckboxMultipleLine className="text-sm" />
+                Seleccionar todos
+              </button>
+            </div>
             <Select
               isMulti
               isLoading={loadingProviders}
