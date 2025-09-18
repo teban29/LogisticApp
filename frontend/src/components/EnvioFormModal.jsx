@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import Modal from "./Modal";
 import Select from "react-select";
 import { listClients } from "../api/partners";
@@ -33,9 +33,16 @@ export default function EnvioFormModal({ open, onClose, onSubmit, editing }) {
   const [loadingClients, setLoadingClients] = useState(false);
   const [codigoBarras, setCodigoBarras] = useState("");
   const [errorScan, setErrorScan] = useState("");
+  const [duplicateError, setDuplicateError] = useState("");
   const [loadingValidation, setLoadingValidation] = useState(false);
   const { loading: enviosLoading } = useEnvios();
   const [hasChanges, setHasChanges] = useState(false);
+  const [lastAdded, setLastAdded] = useState(null);
+  const [recentlyAdded, setRecentlyAdded] = useState(false);
+
+  // Referencias para controlar el focus
+  const inputRef = useRef(null);
+  const focusTimeoutRef = useRef(null);
 
   useEffect(() => {
     const fetchClients = async () => {
@@ -116,6 +123,7 @@ export default function EnvioFormModal({ open, onClose, onSubmit, editing }) {
     }
     setCodigoBarras("");
     setErrorScan("");
+    setDuplicateError("");
   }, [editing, open, isEdit]);
 
   // Agregar este useEffect después del useEffect existente que carga los datos de edición
@@ -163,14 +171,37 @@ export default function EnvioFormModal({ open, onClose, onSubmit, editing }) {
     }
   }, [form, open, isEdit, editing]);
 
-useEffect(() => {
-  if (!open) {
-    setForm(initialForm);
-    setCodigoBarras("");
-    setErrorScan("");
-    setHasChanges(false);
-  }
-}, [open]);
+  useEffect(() => {
+    if (!open) {
+      setForm(initialForm);
+      setCodigoBarras("");
+      setErrorScan("");
+      setDuplicateError("");
+      setHasChanges(false);
+      setLastAdded(null);
+      setRecentlyAdded(false);
+    }
+  }, [open]);
+
+  // Efecto para enfocar el input cuando se abre el modal
+  useEffect(() => {
+    if (open && inputRef.current) {
+      if (focusTimeoutRef.current) {
+        clearTimeout(focusTimeoutRef.current);
+      }
+      focusTimeoutRef.current = setTimeout(() => {
+        if (inputRef.current) {
+          inputRef.current.focus();
+        }
+      }, 100);
+    }
+
+    return () => {
+      if (focusTimeoutRef.current) {
+        clearTimeout(focusTimeoutRef.current);
+      }
+    };
+  }, [open]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -216,12 +247,18 @@ useEffect(() => {
     );
 
     if (existe) {
-      setErrorScan("Este código ya fue agregado");
+      setDuplicateError("Este código ya fue agregado");
+      setTimeout(() => setDuplicateError(""), 3000);
+      setCodigoBarras("");
+      if (inputRef.current) {
+        inputRef.current.focus();
+      }
       return;
     }
 
     setLoadingValidation(true);
     setErrorScan("");
+    setDuplicateError("");
 
     try {
       // Validar con el backend
@@ -260,8 +297,21 @@ useEffect(() => {
         ],
       }));
 
+      setLastAdded(codigoBarras);
       setCodigoBarras("");
       setErrorScan("");
+      setRecentlyAdded(true);
+      setTimeout(() => setRecentlyAdded(false), 300);
+
+      // Enfocar el input después de un pequeño delay
+      if (focusTimeoutRef.current) {
+        clearTimeout(focusTimeoutRef.current);
+      }
+      focusTimeoutRef.current = setTimeout(() => {
+        if (inputRef.current) {
+          inputRef.current.focus();
+        }
+      }, 50);
     } catch (err) {
       setErrorScan("Error al validar la unidad. Intente nuevamente.");
       console.error("Error en validación:", err);
@@ -282,6 +332,13 @@ useEffect(() => {
       ...prev,
       items_data: prev.items_data.filter((_, i) => i !== index),
     }));
+
+    // Mantener el foco en el input principal
+    if (inputRef.current) {
+      setTimeout(() => {
+        inputRef.current.focus();
+      }, 10);
+    }
   };
 
   const handleSubmit = async (e) => {
@@ -445,17 +502,31 @@ useEffect(() => {
                     <RiBarcodeLine className="h-5 w-5 text-gray-400" />
                   </div>
                   <input
+                    ref={inputRef}
                     value={codigoBarras}
                     onChange={(e) => {
                       setCodigoBarras(e.target.value);
                       setErrorScan("");
+                      setDuplicateError("");
                     }}
                     onKeyPress={handleKeyPress}
-                    className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-colors"
+                    className={`w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-colors ${
+                      recentlyAdded ? "ring-2 ring-green-500" : ""
+                    }`}
                     placeholder="Escanear código de barras y presionar Enter"
                     disabled={loadingValidation || !form.cliente}
                   />
                 </div>
+                {duplicateError && (
+                  <span className="text-red-500 text-xs mt-1 block animate-pulse">
+                    {duplicateError}
+                  </span>
+                )}
+                {errorScan && (
+                  <span className="text-red-500 text-xs mt-1 block">
+                    {errorScan}
+                  </span>
+                )}
               </div>
 
               <div className="flex items-end">
@@ -480,13 +551,6 @@ useEffect(() => {
                 </button>
               </div>
             </div>
-
-            {errorScan && (
-              <div className="mt-2 flex items-center gap-2 text-red-600 text-sm">
-                <RiErrorWarningLine />
-                {errorScan}
-              </div>
-            )}
           </div>
 
           {form.items_data.length > 0 && (
@@ -506,7 +570,11 @@ useEffect(() => {
                 return (
                   <div
                     key={item.temporal_id || item.id}
-                    className="flex items-center gap-3 p-3 bg-white border rounded-lg">
+                    className={`flex items-center gap-3 p-3 bg-white border rounded-lg transition-all duration-300 ${
+                      lastAdded === item.unidad_codigo
+                        ? "bg-green-50 border-l-4 border-l-green-500"
+                        : ""
+                    }`}>
                     <div className="flex-1">
                       {/* NOMBRE DEL PRODUCTO EN GRANDE */}
                       <p className="font-medium text-gray-900 mb-1">

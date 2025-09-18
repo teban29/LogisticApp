@@ -22,10 +22,13 @@ export default function EscaneoMasivoModal({
   closeConfirmationMessage = "¿Está seguro que desea salir? Se perderán los cambios no guardados.",
 }) {
   const { procesarEscaneoMasivo, loading } = useEnvios();
-  const [codigosData, setCodigosData] = useState([]); // Cambio: ahora almacena objetos con código y nombre
+  const [codigosData, setCodigosData] = useState([]);
   const [inputCodigo, setInputCodigo] = useState("");
-  const [loadingValidacion, setLoadingValidacion] = useState(false); // Para cargar info del producto
-  const [errorValidacion, setErrorValidacion] = useState(""); // Para errores
+  const [loadingValidacion, setLoadingValidacion] = useState(false);
+  const [errorValidacion, setErrorValidacion] = useState("");
+  const [duplicateError, setDuplicateError] = useState("");
+  const [lastAdded, setLastAdded] = useState(null);
+  const [recentlyAdded, setRecentlyAdded] = useState(false);
   const [formData, setFormData] = useState({
     conductor: "",
     placa_vehiculo: "",
@@ -35,21 +38,38 @@ export default function EscaneoMasivoModal({
   const [hasChanges, setHasChanges] = useState(false);
   const inputRef = useRef(null);
   const formRef = useRef(null);
+  const focusTimeoutRef = useRef(null);
 
   useEffect(() => {
     if (open && inputRef.current && !hasChanges) {
-      const timer = setTimeout(() => {
+      if (focusTimeoutRef.current) {
+        clearTimeout(focusTimeoutRef.current);
+      }
+      focusTimeoutRef.current = setTimeout(() => {
         inputRef.current.focus();
       }, 100);
-
-      return () => clearTimeout(timer);
     }
+
+    return () => {
+      if (focusTimeoutRef.current) {
+        clearTimeout(focusTimeoutRef.current);
+      }
+    };
   }, [open, hasChanges]);
+
+  useEffect(() => {
+    return () => {
+      if (focusTimeoutRef.current) {
+        clearTimeout(focusTimeoutRef.current);
+      }
+    };
+  }, []);
 
   const resetForm = () => {
     setCodigosData([]);
     setInputCodigo("");
     setErrorValidacion("");
+    setDuplicateError("");
     setLoadingValidacion(false);
     setFormData({
       conductor: "",
@@ -58,6 +78,8 @@ export default function EscaneoMasivoModal({
     });
     setResultado(null);
     setHasChanges(false);
+    setLastAdded(null);
+    setRecentlyAdded(false);
   };
 
   const handleClose = () => {
@@ -84,20 +106,24 @@ export default function EscaneoMasivoModal({
     );
 
     if (existe) {
-      setErrorValidacion("Este código ya fue agregado");
+      setDuplicateError("Este código ya fue escaneado");
+      setTimeout(() => setDuplicateError(""), 3000);
+      setInputCodigo("");
+      if (inputRef.current) {
+        inputRef.current.focus();
+      }
       return;
     }
 
     setLoadingValidacion(true);
     setErrorValidacion("");
+    setDuplicateError("");
 
     try {
       // Obtener información del producto sin validar cliente
       const infoProducto = await obtenerInfoProductoPorCodigo(
         inputCodigo.trim()
       );
-
-      console.log("DEBUG - Info producto obtenida:", infoProducto);
 
       // Agregar el código con su información real o placeholder
       setCodigosData((prev) => [
@@ -110,9 +136,22 @@ export default function EscaneoMasivoModal({
         },
       ]);
 
+      setLastAdded(inputCodigo.trim());
       setInputCodigo("");
       setErrorValidacion("");
       setHasChanges(true);
+      setRecentlyAdded(true);
+      setTimeout(() => setRecentlyAdded(false), 300);
+
+      // Enfocar el input después de un pequeño delay
+      if (focusTimeoutRef.current) {
+        clearTimeout(focusTimeoutRef.current);
+      }
+      focusTimeoutRef.current = setTimeout(() => {
+        if (inputRef.current) {
+          inputRef.current.focus();
+        }
+      }, 50);
     } catch (err) {
       console.error("Error al obtener info del producto:", err);
       // Si hay error, agregar con placeholder
@@ -125,8 +164,22 @@ export default function EscaneoMasivoModal({
           temporal_id: Date.now() + Math.random(),
         },
       ]);
+      
+      setLastAdded(inputCodigo.trim());
       setInputCodigo("");
       setHasChanges(true);
+      setRecentlyAdded(true);
+      setTimeout(() => setRecentlyAdded(false), 300);
+
+      // Enfocar el input después de un pequeño delay
+      if (focusTimeoutRef.current) {
+        clearTimeout(focusTimeoutRef.current);
+      }
+      focusTimeoutRef.current = setTimeout(() => {
+        if (inputRef.current) {
+          inputRef.current.focus();
+        }
+      }, 50);
     } finally {
       setLoadingValidacion(false);
     }
@@ -142,6 +195,13 @@ export default function EscaneoMasivoModal({
   const handleRemoverCodigo = (index) => {
     setCodigosData((prev) => prev.filter((_, i) => i !== index));
     setHasChanges(true);
+
+    // Mantener el foco en el input principal
+    if (inputRef.current) {
+      setTimeout(() => {
+        inputRef.current.focus();
+      }, 10);
+    }
   };
 
   const handleInputChange = (e) => {
@@ -178,7 +238,7 @@ export default function EscaneoMasivoModal({
 
     try {
       const payload = {
-        codigos_barras: codigosData.map((item) => item.codigo), // Extraer solo los códigos
+        codigos_barras: codigosData.map((item) => item.codigo),
         conductor: formData.conductor,
         placa_vehiculo: formData.placa_vehiculo,
         origen: formData.origen,
@@ -317,17 +377,38 @@ export default function EscaneoMasivoModal({
                   </div>
                   <input
                     ref={inputRef}
+                    aria-label="Código de barras"
+                    aria-describedby={
+                      errorValidacion
+                        ? "error-message"
+                        : duplicateError
+                        ? "duplicate-error"
+                        : undefined
+                    }
                     value={inputCodigo}
                     onChange={(e) => {
                       setInputCodigo(e.target.value);
                       setErrorValidacion("");
+                      setDuplicateError("");
                     }}
                     onKeyPress={handleKeyPress}
-                    className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-colors"
+                    className={`w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-colors ${
+                      recentlyAdded ? 'ring-2 ring-green-500' : ''
+                    }`}
                     placeholder="Escanear código de barras de cualquier cliente"
                     disabled={loading || loadingValidacion}
                   />
                 </div>
+                {duplicateError && (
+                  <span id="duplicate-error" className="text-red-500 text-xs mt-1 block animate-pulse">
+                    {duplicateError}
+                  </span>
+                )}
+                {errorValidacion && (
+                  <span id="error-message" className="text-red-500 text-xs mt-1 block">
+                    {errorValidacion}
+                  </span>
+                )}
               </div>
 
               <div className="flex items-end">
@@ -357,7 +438,7 @@ export default function EscaneoMasivoModal({
             </p>
           </div>
 
-          {/* Lista de códigos escaneados - CON NOMBRE EN GRANDE */}
+          {/* Lista de códigos escaneados */}
           {codigosData.length > 0 && (
             <div className="space-y-2">
               <h4 className="font-medium text-gray-700">
@@ -368,7 +449,9 @@ export default function EscaneoMasivoModal({
                 {codigosData.map((item, index) => (
                   <div
                     key={item.temporal_id}
-                    className="flex items-center gap-3 p-3 bg-white">
+                    className={`flex items-center gap-3 p-3 bg-white transition-all duration-300 ${
+                      lastAdded === item.codigo ? 'bg-green-50 border-l-4 border-l-green-500' : ''
+                    }`}>
                     <div className="flex-1">
                       {/* NOMBRE DEL PRODUCTO EN GRANDE */}
                       <p className="font-medium text-gray-900 mb-1">
