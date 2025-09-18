@@ -12,22 +12,32 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 
 from pathlib import Path
 import os
+from datetime import timedelta
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
+# Cargar variables de entorno si existe el archivo .env
+if os.path.exists(BASE_DIR / '.env'):
+    from dotenv import load_dotenv
+    load_dotenv(BASE_DIR / '.env')
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-qu=hk4ciy-3ggzu@!2+yjvf+gjf47grr@j^^@=$e*f*wzl52l6'
+SECRET_KEY = os.getenv('SECRET_KEY', 'django-insecure-qu=hk4ciy-3ggzu@!2+yjvf+gjf47grr@j^^@=$e*f*wzl52l6')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = os.getenv('DEBUG', 'True') == 'True'
 
-ALLOWED_HOSTS = []
+# Configuración de hosts permitidos
+ALLOWED_HOSTS_STR = os.getenv('ALLOWED_HOSTS', '')
+ALLOWED_HOSTS = ALLOWED_HOSTS_STR.split(',') if ALLOWED_HOSTS_STR else []
 
+# Si estamos en desarrollo y ALLOWED_HOSTS está vacío, agregar localhost
+if DEBUG and not ALLOWED_HOSTS:
+    ALLOWED_HOSTS = ['localhost', '127.0.0.1']
 
 # Application definition
 
@@ -85,12 +95,26 @@ WSGI_APPLICATION = 'backend.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+# Configuración de base de datos
+if os.getenv('DB_ENGINE') == 'postgresql':
+    DATABASES = {
+        'default': {
+            "ENGINE": "django.db.backends.postgresql",
+            "NAME": os.getenv("DB_NAME", "mydatabase"),
+            "USER": os.getenv("DB_USER", "myuser"),
+            "PASSWORD": os.getenv("DB_PASSWORD", "mypassword"),
+            "HOST": os.getenv("DB_HOST", "localhost"),
+            "PORT": os.getenv("DB_PORT", "5432"),
+        }
     }
-}
+else:
+    # SQLite por defecto para desarrollo
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.sqlite3',
+            'NAME': BASE_DIR / 'db.sqlite3',
+        }
+    }
 
 
 # Password validation
@@ -127,19 +151,33 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/5.2/howto/static-files/
 
-STATIC_URL = 'static/'
+STATIC_URL = '/static/'
+STATIC_ROOT = os.path.join(BASE_DIR, 'static/')
+
+# Media files
+MEDIA_URL = '/media/'
+MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 
 # Default primary key field type
-# https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
-
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
-CORS_ALLOW_ALL_ORIGINS = True
+# CORS configuration
+if DEBUG:
+    CORS_ALLOW_ALL_ORIGINS = True
+else:
+    CORS_ALLOWED_ORIGINS = [
+        "http://localhost:5173",
+        "http://31.97.10.251",
+    ]
+    # Configuración de seguridad adicional para producción
+    CSRF_COOKIE_SECURE = True
+    SESSION_COOKIE_SECURE = True
+    SECURE_SSL_REDIRECT = os.getenv('SECURE_SSL_REDIRECT', 'False') == 'True'
 
-
+# Custom user model
 AUTH_USER_MODEL = 'accounts.Usuario'
 
-
+# Django REST Framework
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
         'rest_framework_simplejwt.authentication.JWTAuthentication',
@@ -148,7 +186,7 @@ REST_FRAMEWORK = {
         'rest_framework.permissions.IsAuthenticated',
     ),
     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
-    'PAGE_SIZE': 10,  # Puedes ajustar el tamaño
+    'PAGE_SIZE': 10,
     'DEFAULT_FILTER_BACKENDS': (
         'rest_framework.filters.SearchFilter',
         'rest_framework.filters.OrderingFilter',
@@ -156,6 +194,51 @@ REST_FRAMEWORK = {
     ),
 }
 
+# Simple JWT configuration - Sesiones infinitas
+SIMPLE_JWT = {
+    'ACCESS_TOKEN_LIFETIME': timedelta(days=365),  # 1 año de duración
+    'REFRESH_TOKEN_LIFETIME': timedelta(days=365),  # 1 año de duración
+    'ROTATE_REFRESH_TOKENS': False,
+    'BLACKLIST_AFTER_ROTATION': False,
+    'UPDATE_LAST_LOGIN': False,
+    'ALGORITHM': 'HS256',
+    'SIGNING_KEY': SECRET_KEY,
+    'VERIFYING_KEY': None,
+    'AUDIENCE': None,
+    'ISSUER': None,
+    'JWK_URL': None,
+    'LEEWAY': 0,
+    'AUTH_HEADER_TYPES': ('Bearer',),
+    'AUTH_HEADER_NAME': 'HTTP_AUTHORIZATION',
+    'USER_ID_FIELD': 'id',
+    'USER_ID_CLAIM': 'user_id',
+    'USER_AUTHENTICATION_RULE': 'rest_framework_simplejwt.authentication.default_user_authentication_rule',
+    'AUTH_TOKEN_CLASSES': ('rest_framework_simplejwt.tokens.AccessToken',),
+    'TOKEN_TYPE_CLAIM': 'token_type',
+    'TOKEN_USER_CLASS': 'rest_framework_simplejwt.models.TokenUser',
+    'JTI_CLAIM': 'jti',
+    'SLIDING_TOKEN_REFRESH_EXP_CLAIM': 'refresh_exp',
+    'SLIDING_TOKEN_LIFETIME': timedelta(days=365),
+    'SLIDING_TOKEN_REFRESH_LIFETIME': timedelta(days=365),
+}
 
-MEDIA_URL = '/media/'
-MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
+# Logging configuration
+if not DEBUG:
+    LOGGING = {
+        'version': 1,
+        'disable_existing_loggers': False,
+        'handlers': {
+            'file': {
+                'level': 'ERROR',
+                'class': 'logging.FileHandler',
+                'filename': os.path.join(BASE_DIR, 'django_errors.log'),
+            },
+        },
+        'loggers': {
+            'django': {
+                'handlers': ['file'],
+                'level': 'ERROR',
+                'propagate': True,
+            },
+        },
+    }
