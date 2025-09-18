@@ -13,7 +13,6 @@ venv/
 instance/
 .venv/
 db.sqlite3
-
 # Django static/media
 staticfiles/
 media/
@@ -40,3 +39,4 @@ frontend/.env
 
 # === Git ===
 *.orig
+backend/backend/settings.py
