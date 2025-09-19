@@ -170,9 +170,9 @@ else:
         "http://31.97.10.251",
     ]
     # Configuración de seguridad adicional para producción
-    CSRF_COOKIE_SECURE = True
-    SESSION_COOKIE_SECURE = True
-    SECURE_SSL_REDIRECT = os.getenv('SECURE_SSL_REDIRECT', 'False') == 'True'
+    CSRF_COOKIE_SECURE = False
+    SESSION_COOKIE_SECURE = False
+    SECURE_SSL_REDIRECT = False
 
 # Custom user model
 AUTH_USER_MODEL = 'accounts.Usuario'
