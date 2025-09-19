@@ -167,12 +167,20 @@ if DEBUG:
 else:
     CORS_ALLOWED_ORIGINS = [
         "http://localhost:5173",
+        "http://31.97.10.251:5173",
         "http://31.97.10.251",
     ]
     # Configuración de seguridad adicional para producción
     CSRF_COOKIE_SECURE = False
     SESSION_COOKIE_SECURE = False
     SECURE_SSL_REDIRECT = False
+    CSRF_TRUSTED_ORIGINS = [
+        "http://31.97.10.251",
+        "http://31.97.10.251:5173",
+    ]
+    
+CORS_ALLOW_ALL_ORIGINS = True
+CORS_ALLOW_CREDENTIALS = True
 
 # Custom user model
 AUTH_USER_MODEL = 'accounts.Usuario'
