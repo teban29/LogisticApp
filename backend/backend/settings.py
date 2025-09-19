@@ -35,9 +35,9 @@ DEBUG = os.getenv('DEBUG', 'True') == 'True'
 ALLOWED_HOSTS_STR = os.getenv('ALLOWED_HOSTS', '')
 ALLOWED_HOSTS = ALLOWED_HOSTS_STR.split(',') if ALLOWED_HOSTS_STR else []
 
-# Si estamos en desarrollo y ALLOWED_HOSTS está vacío, agregar localhost
-if DEBUG and not ALLOWED_HOSTS:
-    ALLOWED_HOSTS = ['localhost', '127.0.0.1']
+# Siempre incluir localhost y la IP para evitar problemas
+DEFAULT_HOSTS = ['localhost', '127.0.0.1', '31.97.10.251']
+ALLOWED_HOSTS = list(set(ALLOWED_HOSTS + DEFAULT_HOSTS))  # Eliminar duplicados
 
 # Application definition
 
@@ -62,6 +62,7 @@ INSTALLED_APPS = [
 ]
 
 MIDDLEWARE = [
+    'corsheaders.middleware.CorsMiddleware',  # Debe ir lo más arriba posible
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -69,7 +70,6 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
-    'corsheaders.middleware.CorsMiddleware',
 ]
 
 ROOT_URLCONF = 'backend.urls'
@@ -96,7 +96,8 @@ WSGI_APPLICATION = 'backend.wsgi.application'
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 
 # Configuración de base de datos
-if os.getenv('DB_ENGINE') == 'postgresql':
+DB_ENGINE = os.getenv('DB_ENGINE', 'sqlite')
+if DB_ENGINE == 'postgresql':
     DATABASES = {
         'default': {
             "ENGINE": "django.db.backends.postgresql",
@@ -164,23 +165,26 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 # CORS configuration
 if DEBUG:
     CORS_ALLOW_ALL_ORIGINS = True
+    CORS_ALLOW_CREDENTIALS = True
 else:
     CORS_ALLOWED_ORIGINS = [
         "http://localhost:5173",
+        "http://127.0.0.1:5173",
         "http://31.97.10.251:5173",
         "http://31.97.10.251",
     ]
-    # Configuración de seguridad adicional para producción
-    CSRF_COOKIE_SECURE = False
-    SESSION_COOKIE_SECURE = False
-    SECURE_SSL_REDIRECT = False
-    CSRF_TRUSTED_ORIGINS = [
-        "http://31.97.10.251",
-        "http://31.97.10.251:5173",
-    ]
-    
-CORS_ALLOW_ALL_ORIGINS = True
-CORS_ALLOW_CREDENTIALS = True
+    CORS_ALLOW_CREDENTIALS = True
+
+# Configuración de seguridad para HTTP (sin SSL)
+CSRF_COOKIE_SECURE = False
+SESSION_COOKIE_SECURE = False
+SECURE_SSL_REDIRECT = False
+CSRF_TRUSTED_ORIGINS = [
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+    "http://31.97.10.251:5173",
+    "http://31.97.10.251",
+]
 
 # Custom user model
 AUTH_USER_MODEL = 'accounts.Usuario'
@@ -229,4 +233,3 @@ SIMPLE_JWT = {
     'SLIDING_TOKEN_LIFETIME': timedelta(days=365),
     'SLIDING_TOKEN_REFRESH_LIFETIME': timedelta(days=365),
 }
-
