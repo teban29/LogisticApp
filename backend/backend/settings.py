@@ -12,30 +12,27 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 
 from pathlib import Path
 import os
+from dotenv import load_dotenv
 from datetime import timedelta
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
-
-# Cargar variables de entorno si existe el archivo .env
-if os.path.exists(BASE_DIR / '.env'):
-    from dotenv import load_dotenv
-    load_dotenv(BASE_DIR / '.env')
+load_dotenv(BASE_DIR / '.env')
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = os.getenv('SECRET_KEY', 'django-insecure-qu=hk4ciy-3ggzu@!2+yjvf+gjf47grr@j^^@=$e*f*wzl52l6')
+SECRET_KEY = os.getenv('SECRET_KEY', 'inseguro-dev-key')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = os.getenv('DEBUG', 'True') == 'True'
+DEBUG = os.getenv('DEBUG', 'False') == 'True'
 
 # Configuración de hosts permitidos
 ALLOWED_HOSTS_STR = os.getenv('ALLOWED_HOSTS', '')
 ALLOWED_HOSTS = ALLOWED_HOSTS_STR.split(',') if ALLOWED_HOSTS_STR else []
 
-# Siempre incluir localhost y la IP para evitar problemas
+# Siempre incluir hosts por defecto para evitar problemas
 DEFAULT_HOSTS = ['localhost', '127.0.0.1', '31.97.10.251']
 ALLOWED_HOSTS = list(set(ALLOWED_HOSTS + DEFAULT_HOSTS))  # Eliminar duplicados
 
@@ -91,32 +88,19 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'backend.wsgi.application'
 
-
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 
-# Configuración de base de datos
-DB_ENGINE = os.getenv('DB_ENGINE', 'sqlite')
-if DB_ENGINE == 'postgresql':
-    DATABASES = {
-        'default': {
-            "ENGINE": "django.db.backends.postgresql",
-            "NAME": os.getenv("DB_NAME", "mydatabase"),
-            "USER": os.getenv("DB_USER", "myuser"),
-            "PASSWORD": os.getenv("DB_PASSWORD", "mypassword"),
-            "HOST": os.getenv("DB_HOST", "localhost"),
-            "PORT": os.getenv("DB_PORT", "5432"),
-        }
+DATABASES = {
+    'default': {
+        "ENGINE": "django.db.backends.postgresql",
+        "NAME": os.getenv("DB_NAME"),
+        "USER": os.getenv("DB_USER"),
+        "PASSWORD": os.getenv("DB_PASSWORD"),
+        "HOST": os.getenv("DB_HOST", "localhost"),
+        "PORT": os.getenv("DB_PORT", "5432"),
     }
-else:
-    # SQLite por defecto para desarrollo
-    DATABASES = {
-        'default': {
-            'ENGINE': 'django.db.backends.sqlite3',
-            'NAME': BASE_DIR / 'db.sqlite3',
-        }
-    }
-
+}
 
 # Password validation
 # https://docs.djangoproject.com/en/5.2/ref/settings/#auth-password-validators
@@ -136,7 +120,6 @@ AUTH_PASSWORD_VALIDATORS = [
     },
 ]
 
-
 # Internationalization
 # https://docs.djangoproject.com/en/5.2/topics/i18n/
 
@@ -147,7 +130,6 @@ TIME_ZONE = 'America/Bogota'
 USE_I18N = True
 
 USE_TZ = True
-
 
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/5.2/howto/static-files/
@@ -161,30 +143,6 @@ MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 
 # Default primary key field type
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
-
-# CORS configuration
-if DEBUG:
-    CORS_ALLOW_ALL_ORIGINS = True
-    CORS_ALLOW_CREDENTIALS = True
-else:
-    CORS_ALLOWED_ORIGINS = [
-        "http://localhost:5173",
-        "http://127.0.0.1:5173",
-        "http://31.97.10.251:5173",
-        "http://31.97.10.251",
-    ]
-    CORS_ALLOW_CREDENTIALS = True
-
-# Configuración de seguridad para HTTP (sin SSL)
-CSRF_COOKIE_SECURE = False
-SESSION_COOKIE_SECURE = False
-SECURE_SSL_REDIRECT = False
-CSRF_TRUSTED_ORIGINS = [
-    "http://localhost:5173",
-    "http://127.0.0.1:5173",
-    "http://31.97.10.251:5173",
-    "http://31.97.10.251",
-]
 
 # Custom user model
 AUTH_USER_MODEL = 'accounts.Usuario'
@@ -206,7 +164,7 @@ REST_FRAMEWORK = {
     ),
 }
 
-# Simple JWT configuration - Sesiones infinitas
+# Simple JWT configuration - Sesiones infinitas (CONFIGURACIÓN CLAVE)
 SIMPLE_JWT = {
     'ACCESS_TOKEN_LIFETIME': timedelta(days=365),  # 1 año de duración
     'REFRESH_TOKEN_LIFETIME': timedelta(days=365),  # 1 año de duración
@@ -233,3 +191,24 @@ SIMPLE_JWT = {
     'SLIDING_TOKEN_LIFETIME': timedelta(days=365),
     'SLIDING_TOKEN_REFRESH_LIFETIME': timedelta(days=365),
 }
+
+# Configuración de seguridad para HTTP (sin SSL)
+CSRF_COOKIE_SECURE = False
+SESSION_COOKIE_SECURE = False
+SECURE_SSL_REDIRECT = False
+CSRF_TRUSTED_ORIGINS = [
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+    "http://31.97.10.251:5173",
+    "http://31.97.10.251",
+]
+
+# Configuración CORS
+CORS_ALLOW_ALL_ORIGINS = False
+CORS_ALLOW_CREDENTIALS = True
+CORS_ALLOWED_ORIGINS = [
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+    "http://31.97.10.251:5173",
+    "http://31.97.10.251",
+]
