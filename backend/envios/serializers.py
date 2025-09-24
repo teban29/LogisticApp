@@ -45,14 +45,39 @@ class EnvioSerializer(serializers.ModelSerializer):
         help_text="Lista de items con formato: [{'unidad_codigo': 'CODIGO123', 'valor_unitario': 100.00}]"
     )
     
+    items_agrupados = serializers.SerializerMethodField()
+    
     class Meta:
         model = Envio
         fields = [
             'id', 'numero_guia', 'cliente', 'cliente_nombre', 'conductor', 
             'placa_vehiculo', 'origen', 'valor_total', 'estado', 'items', 
-            'items_data', 'created_at', 'updated_at'
+            'items_data', 'created_at', 'updated_at', 'items_agrupados'
         ]
         read_only_fields = ['numero_guia', 'valor_total', 'created_at', 'updated_at']
+
+    def get_items_agrupados(self, obj):
+        items = obj.items.select_related(
+            'unidad__carga_item__producto',
+            'unidad__carga_item__carga'
+        )
+        
+        # Agrupar por producto y remisión
+        grupos = {}
+        for item in items:
+            clave = f"{item.unidad.carga_item.producto.id}-{item.unidad.carga_item.carga.remision}"
+            if clave not in grupos:
+                grupos[clave] = {
+                    'producto': item.unidad.carga_item.producto.nombre,
+                    'remision': item.unidad.carga_item.carga.remision,
+                    'cantidad': 0,
+                    'valor_unitario': item.valor_unitario,
+                    'items_ids': []
+                }
+            grupos[clave]['cantidad'] += 1
+            grupos[clave]['items_ids'].append(item.id)
+        
+        return list(grupos.values())
     
     def to_representation(self, instance):
         """Sobrescribir para incluir unidad_codigo en la representación"""

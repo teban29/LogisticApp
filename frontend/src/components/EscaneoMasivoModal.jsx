@@ -12,7 +12,91 @@ import {
   RiUserLine,
   RiTruckLine,
   RiMapPinLine,
+  RiExpandUpDownLine,
 } from "react-icons/ri";
+
+// Importar api para usar en la función de obtenerInfoCompletaUnidad
+import api from "../api/axios";
+
+// Función para obtener información completa de la unidad (incluyendo cliente)
+const obtenerInfoCompletaUnidad = async (codigoBarra) => {
+  try {
+    // Usaremos el endpoint que ya tienes para obtener info completa
+    const response = await api.get(
+      `/api/cargas/unidades/por-codigo/?codigo_barra=${codigoBarra}`
+    );
+    const unidad = response.data;
+
+    return {
+      codigo: codigoBarra,
+      producto_nombre: unidad.producto_nombre || "Producto",
+      precio_referencia: 0, // Puedes ajustar esto según tu modelo
+      cliente_id: unidad.cliente_id,
+      cliente_nombre: unidad.cliente_nombre || "Cliente",
+      remision: unidad.remision || "N/A",
+      temporal_id: Date.now() + Math.random(),
+    };
+  } catch (error) {
+    console.error("Error al obtener info completa de la unidad:", error);
+    // Fallback si hay error
+    return {
+      codigo: codigoBarra,
+      producto_nombre: "Producto",
+      precio_referencia: 0,
+      cliente_id: null,
+      cliente_nombre: "Cliente",
+      remision: "N/A",
+      temporal_id: Date.now() + Math.random(),
+    };
+  }
+};
+
+// Función helper para agrupar items por cliente, producto y remisión
+const agruparItemsMasivo = (items) => {
+  const grupos = {};
+
+  console.log("DEBUG - Items a agrupar (masivo):", items);
+
+  items.forEach((item) => {
+    const clienteNombre = item.cliente_nombre || "Cliente";
+    const productoNombre = item.producto_nombre || "Producto";
+    const remision = item.remision || "N/A";
+
+    // Crear una clave única basada en cliente + producto + remisión
+    const clave = `${clienteNombre}-${productoNombre}-${remision}`;
+
+    console.log("DEBUG - Procesando item (masivo):", {
+      clienteNombre,
+      productoNombre,
+      remision,
+      clave,
+    });
+
+    if (!grupos[clave]) {
+      grupos[clave] = {
+        cliente_nombre: clienteNombre,
+        cliente_id: item.cliente_id,
+        producto_nombre: productoNombre,
+        remision: remision,
+        cantidad: 0,
+        items: [],
+      };
+      console.log("DEBUG - Nuevo grupo creado (masivo):", clave);
+    }
+    grupos[clave].cantidad += 1;
+    grupos[clave].items.push(item);
+
+    console.log(
+      "DEBUG - Item agregado al grupo (masivo):",
+      clave,
+      "Cantidad:",
+      grupos[clave].cantidad
+    );
+  });
+
+  console.log("DEBUG - Grupos finales (masivo):", Object.values(grupos));
+  return Object.values(grupos);
+};
 
 export default function EscaneoMasivoModal({
   open,
@@ -36,6 +120,7 @@ export default function EscaneoMasivoModal({
   });
   const [resultado, setResultado] = useState(null);
   const [hasChanges, setHasChanges] = useState(false);
+  const [vistaAgrupada, setVistaAgrupada] = useState(true);
   const inputRef = useRef(null);
   const formRef = useRef(null);
   const focusTimeoutRef = useRef(null);
@@ -80,6 +165,7 @@ export default function EscaneoMasivoModal({
     setHasChanges(false);
     setLastAdded(null);
     setRecentlyAdded(false);
+    setVistaAgrupada(true);
   };
 
   const handleClose = () => {
@@ -120,21 +206,13 @@ export default function EscaneoMasivoModal({
     setDuplicateError("");
 
     try {
-      // Obtener información del producto sin validar cliente
-      const infoProducto = await obtenerInfoProductoPorCodigo(
-        inputCodigo.trim()
-      );
+      // Obtener información COMPLETA de la unidad (incluyendo cliente)
+      const infoCompleta = await obtenerInfoCompletaUnidad(inputCodigo.trim());
 
-      // Agregar el código con su información real o placeholder
-      setCodigosData((prev) => [
-        ...prev,
-        {
-          codigo: inputCodigo.trim(),
-          producto_nombre: infoProducto.producto_nombre || "Producto",
-          precio_referencia: infoProducto.precio_referencia || 0,
-          temporal_id: Date.now() + Math.random(),
-        },
-      ]);
+      console.log("DEBUG - Información completa obtenida:", infoCompleta);
+
+      // Agregar el código con toda la información
+      setCodigosData((prev) => [...prev, infoCompleta]);
 
       setLastAdded(inputCodigo.trim());
       setInputCodigo("");
@@ -153,7 +231,7 @@ export default function EscaneoMasivoModal({
         }
       }, 50);
     } catch (err) {
-      console.error("Error al obtener info del producto:", err);
+      console.error("Error al obtener info completa de la unidad:", err);
       // Si hay error, agregar con placeholder
       setCodigosData((prev) => [
         ...prev,
@@ -161,10 +239,13 @@ export default function EscaneoMasivoModal({
           codigo: inputCodigo.trim(),
           producto_nombre: "Producto",
           precio_referencia: 0,
+          cliente_id: null,
+          cliente_nombre: "Cliente",
+          remision: "N/A",
           temporal_id: Date.now() + Math.random(),
         },
       ]);
-      
+
       setLastAdded(inputCodigo.trim());
       setInputCodigo("");
       setHasChanges(true);
@@ -194,6 +275,31 @@ export default function EscaneoMasivoModal({
 
   const handleRemoverCodigo = (index) => {
     setCodigosData((prev) => prev.filter((_, i) => i !== index));
+    setHasChanges(true);
+
+    // Mantener el foco en el input principal
+    if (inputRef.current) {
+      setTimeout(() => {
+        inputRef.current.focus();
+      }, 10);
+    }
+  };
+
+  const handleRemoverGrupo = (grupoIndex) => {
+    const grupos = agruparItemsMasivo(codigosData);
+    const grupo = grupos[grupoIndex];
+
+    // Remover todos los items del grupo
+    const nuevosItems = codigosData.filter(
+      (item) =>
+        !(
+          item.cliente_nombre === grupo.cliente_nombre &&
+          item.producto_nombre === grupo.producto_nombre &&
+          item.remision === grupo.remision
+        )
+    );
+
+    setCodigosData(nuevosItems);
     setHasChanges(true);
 
     // Mantener el foco en el input principal
@@ -266,6 +372,8 @@ export default function EscaneoMasivoModal({
       e.preventDefault();
     }
   };
+
+  const grupos = agruparItemsMasivo(codigosData);
 
   return (
     <Modal
@@ -365,7 +473,7 @@ export default function EscaneoMasivoModal({
               Código de barras (presione Enter para agregar)
               {loadingValidacion && (
                 <span className="ml-2 text-blue-600 text-xs">
-                  Obteniendo producto...
+                  Obteniendo información...
                 </span>
               )}
             </label>
@@ -393,19 +501,23 @@ export default function EscaneoMasivoModal({
                     }}
                     onKeyPress={handleKeyPress}
                     className={`w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-colors ${
-                      recentlyAdded ? 'ring-2 ring-green-500' : ''
+                      recentlyAdded ? "ring-2 ring-green-500" : ""
                     }`}
                     placeholder="Escanear código de barras de cualquier cliente"
                     disabled={loading || loadingValidacion}
                   />
                 </div>
                 {duplicateError && (
-                  <span id="duplicate-error" className="text-red-500 text-xs mt-1 block animate-pulse">
+                  <span
+                    id="duplicate-error"
+                    className="text-red-500 text-xs mt-1 block animate-pulse">
                     {duplicateError}
                   </span>
                 )}
                 {errorValidacion && (
-                  <span id="error-message" className="text-red-500 text-xs mt-1 block">
+                  <span
+                    id="error-message"
+                    className="text-red-500 text-xs mt-1 block">
                     {errorValidacion}
                   </span>
                 )}
@@ -440,40 +552,140 @@ export default function EscaneoMasivoModal({
 
           {/* Lista de códigos escaneados */}
           {codigosData.length > 0 && (
-            <div className="space-y-2">
-              <h4 className="font-medium text-gray-700">
-                Códigos escaneados ({codigosData.length}):
-              </h4>
+            <div className="space-y-4">
+              <div className="flex justify-between items-center">
+                <h4 className="font-medium text-gray-700">
+                  {vistaAgrupada
+                    ? "Unidades agrupadas:"
+                    : "Unidades individuales:"}{" "}
+                  ({codigosData.length} unidades)
+                </h4>
 
-              <div className="max-h-60 overflow-y-auto border rounded-lg divide-y">
-                {codigosData.map((item, index) => (
-                  <div
-                    key={item.temporal_id}
-                    className={`flex items-center gap-3 p-3 bg-white transition-all duration-300 ${
-                      lastAdded === item.codigo ? 'bg-green-50 border-l-4 border-l-green-500' : ''
-                    }`}>
-                    <div className="flex-1">
-                      {/* NOMBRE DEL PRODUCTO EN GRANDE */}
-                      <p className="font-medium text-gray-900 mb-1">
-                        {item.producto_nombre}
-                      </p>
-
-                      {/* CÓDIGO DE BARRAS PEQUEÑO */}
-                      <p className="font-mono text-xs bg-gray-100 p-1.5 rounded text-gray-600">
-                        {item.codigo}
-                      </p>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => handleRemoverCodigo(index)}
-                      className="p-2 text-red-600 hover:bg-red-50 rounded transition-colors self-center flex-shrink-0"
-                      disabled={loading}
-                      title="Remover item">
-                      <RiCloseLine />
-                    </button>
-                  </div>
-                ))}
+                <button
+                  type="button"
+                  onClick={() => setVistaAgrupada(!vistaAgrupada)}
+                  className="flex items-center gap-2 px-3 py-1.5 text-sm text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors">
+                  <RiExpandUpDownLine />
+                  {vistaAgrupada ? "Vista individual" : "Vista agrupada"}
+                </button>
               </div>
+
+              {vistaAgrupada ? (
+                /* VISTA AGRUPADA */
+                <div className="space-y-3">
+                  {grupos.map((grupo, grupoIndex) => (
+                    <div
+                      key={grupoIndex}
+                      className="p-4 bg-white border border-gray-200 rounded-lg shadow-sm">
+                      {/* Header del grupo */}
+                      <div className="flex justify-between items-start mb-3">
+                        <div className="flex-1">
+                          <h5 className="font-semibold text-gray-900 text-lg">
+                            {grupo.cliente_nombre} - {grupo.producto_nombre} ×{" "}
+                            {grupo.cantidad}
+                          </h5>
+                          <p className="text-sm text-gray-600 mt-1">
+                            Remisión:{" "}
+                            <span className="font-mono">{grupo.remision}</span>
+                          </p>
+                          <p className="text-sm text-blue-600 font-semibold mt-1">
+                            {grupo.cantidad} unidad(es) para este cliente
+                          </p>
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={() => handleRemoverGrupo(grupoIndex)}
+                          className="p-2 text-red-600 hover:bg-red-50 rounded transition-colors"
+                          title="Remover todo el grupo">
+                          <RiCloseLine />
+                        </button>
+                      </div>
+
+                      {/* Lista de códigos de barras del grupo (colapsable) */}
+                      <details className="mt-2 border-t pt-2">
+                        <summary className="text-sm text-blue-600 cursor-pointer hover:text-blue-800 flex items-center gap-1">
+                          <RiExpandUpDownLine className="h-3 w-3" />
+                          Ver {grupo.cantidad} código(s) de barras individuales
+                        </summary>
+                        <div className="mt-2 space-y-1 max-h-40 overflow-y-auto">
+                          {grupo.items.map((item, itemIndex) => {
+                            const itemIndexGlobal = codigosData.findIndex(
+                              (i) => i.temporal_id === item.temporal_id
+                            );
+
+                            return (
+                              <div
+                                key={itemIndex}
+                                className="flex justify-between items-center text-xs bg-gray-50 p-2 rounded border">
+                                <span className="font-mono bg-white px-2 py-1 rounded border">
+                                  {item.codigo}
+                                </span>
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    handleRemoverCodigo(itemIndexGlobal)
+                                  }
+                                  className="text-red-500 hover:text-red-700 p-1 rounded hover:bg-red-50"
+                                  title="Remover item individual">
+                                  <RiCloseLine className="h-3 w-3" />
+                                </button>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </details>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                /* VISTA INDIVIDUAL (original) */
+                <div className="max-h-60 overflow-y-auto border rounded-lg divide-y">
+                  {codigosData.map((item, index) => (
+                    <div
+                      key={item.temporal_id}
+                      className={`flex items-center gap-3 p-3 bg-white transition-all duration-300 ${
+                        lastAdded === item.codigo
+                          ? "bg-green-50 border-l-4 border-l-green-500"
+                          : ""
+                      }`}>
+                      <div className="flex-1">
+                        <p className="font-medium text-gray-900 mb-1">
+                          {item.cliente_nombre} - {item.producto_nombre}
+                        </p>
+                        <p className="text-xs text-gray-500">
+                          Rem: {item.remision}
+                        </p>
+                        <p className="font-mono text-xs bg-gray-100 p-1.5 rounded text-gray-600 mt-1">
+                          {item.codigo}
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => handleRemoverCodigo(index)}
+                        className="p-2 text-red-600 hover:bg-red-50 rounded transition-colors self-center flex-shrink-0"
+                        disabled={loading}
+                        title="Remover item">
+                        <RiCloseLine />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Resumen de grupos */}
+              {vistaAgrupada && (
+                <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                  <p className="text-sm text-blue-800 font-medium">
+                    Resumen: {grupos.length} grupo(s) de envíos,{" "}
+                    {codigosData.length} unidad(es) totales
+                  </p>
+                  <p className="text-xs text-blue-600 mt-1">
+                    Se crearán {grupos.length} envío(s) automáticamente (uno por
+                    cliente)
+                  </p>
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -535,7 +747,7 @@ export default function EscaneoMasivoModal({
             ) : (
               <>
                 <RiBarcodeLine />
-                Crear envíos ({codigosData.length} unidades)
+                Crear {grupos.length} envío(s) ({codigosData.length} unidades)
               </>
             )}
           </button>

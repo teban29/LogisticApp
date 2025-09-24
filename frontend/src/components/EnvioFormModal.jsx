@@ -16,6 +16,7 @@ import {
   RiAddLine,
   RiSubtractLine,
   RiErrorWarningLine,
+  RiExpandUpDownLine,
 } from "react-icons/ri";
 
 const initialForm = {
@@ -24,6 +25,50 @@ const initialForm = {
   placa_vehiculo: "",
   origen: "",
   items_data: [],
+};
+
+const agruparItems = (items) => {
+  const grupos = {};
+
+  console.log("DEBUG - Items a agrupar:", items);
+
+  items.forEach((item) => {
+    // Usar producto_nombre y remisión exactos para agrupar
+    const productoNombre = item.producto_nombre || "Producto";
+    const remision = item.remision || "N/A";
+
+    // Crear una clave única basada en producto y remisión
+    const clave = `${productoNombre}-${remision}`;
+
+    console.log("DEBUG - Procesando item:", {
+      productoNombre,
+      remision,
+      clave,
+    });
+
+    if (!grupos[clave]) {
+      grupos[clave] = {
+        producto_nombre: productoNombre,
+        remision: remision,
+        cantidad: 0,
+        valor_unitario: item.valor_unitario || 0,
+        items: [],
+      };
+      console.log("DEBUG - Nuevo grupo creado:", clave);
+    }
+    grupos[clave].cantidad += 1;
+    grupos[clave].items.push(item);
+
+    console.log(
+      "DEBUG - Item agregado al grupo:",
+      clave,
+      "Cantidad:",
+      grupos[clave].cantidad
+    );
+  });
+
+  console.log("DEBUG - Grupos finales:", Object.values(grupos));
+  return Object.values(grupos);
 };
 
 export default function EnvioFormModal({ open, onClose, onSubmit, editing }) {
@@ -37,8 +82,8 @@ export default function EnvioFormModal({ open, onClose, onSubmit, editing }) {
   const [loadingValidation, setLoadingValidation] = useState(false);
   const { loading: enviosLoading } = useEnvios();
   const [hasChanges, setHasChanges] = useState(false);
-  const [lastAdded, setLastAdded] = useState(null);
   const [recentlyAdded, setRecentlyAdded] = useState(false);
+  const [vistaAgrupada, setVistaAgrupada] = useState(true); // Nueva opción para cambiar vista
 
   // Referencias para controlar el focus
   const inputRef = useRef(null);
@@ -71,52 +116,95 @@ export default function EnvioFormModal({ open, onClose, onSubmit, editing }) {
     if (isEdit && editing) {
       console.log("Datos de edición recibidos:", editing);
 
-      // Transformar los items existentes - MEJORADO
-      const itemsTransformados = (editing.items || []).map((item) => {
-        const codigoBarra =
-          item.unidad_codigo ||
-          item.unidad?.codigo_barra ||
-          item.unidad_detalle?.codigo_barra ||
-          "";
-
-        // Obtener el nombre del producto de múltiples fuentes posibles
-        const productoNombre =
-          item.producto_nombre ||
-          item.unidad?.carga_item?.producto?.nombre ||
-          item.unidad_detalle?.carga_item?.producto?.nombre ||
-          "Producto";
-
+      // DEBUG: Ver la estructura completa del primer item
+      if (editing.items && editing.items.length > 0) {
         console.log(
-          "Transformando item:",
-          item.id,
-          "Código:",
-          codigoBarra,
-          "Producto:",
-          productoNombre
+          "DEBUG - Estructura completa del primer item:",
+          JSON.stringify(editing.items[0], null, 2)
+        );
+      }
+
+      // TRANSFORMACIÓN ROBUSTA - Manejar todas las estructuras posibles
+      const itemsTransformados = (editing.items || [])
+        .map((item, index) => {
+          console.log(`DEBUG - Procesando item ${index}:`, item);
+
+          // ESTRATEGIA 1: Buscar código de barras en múltiples ubicaciones
+          let codigoBarra = "";
+          const posiblesUbicacionesCodigo = [
+            item.unidad_codigo,
+            item.unidad_detalle?.codigo_barra,
+            item.unidad?.codigo_barra,
+            item.codigo_barra,
+            item.unidad_detalle?.unidad?.codigo_barra,
+          ];
+
+          for (const ubicacion of posiblesUbicacionesCodigo) {
+            if (ubicacion && ubicacion.trim() !== "") {
+              codigoBarra = ubicacion;
+              break;
+            }
+          }
+
+          // ESTRATEGIA 2: Buscar nombre del producto en múltiples ubicaciones
+          let productoNombre = "Producto";
+          const posiblesUbicacionesProducto = [
+            item.producto_nombre,
+            item.unidad_detalle?.producto_nombre,
+            item.unidad_detalle?.carga_item?.producto?.nombre,
+            item.unidad?.carga_item?.producto?.nombre,
+            item.producto?.nombre,
+            item.unidad_detalle?.producto?.nombre,
+          ];
+
+          for (const ubicacion of posiblesUbicacionesProducto) {
+            if (ubicacion && ubicacion.trim() !== "") {
+              productoNombre = ubicacion;
+              break;
+            }
+          }
+
+          // ESTRATEGIA 3: Buscar remisión en múltiples ubicaciones
+          let remision = "N/A";
+          const posiblesUbicacionesRemision = [
+            item.remision,
+            item.unidad_detalle?.remision,
+            item.unidad_detalle?.carga_item?.carga?.remision,
+            item.unidad?.carga_item?.carga?.remision,
+            item.carga?.remision,
+          ];
+
+          for (const ubicacion of posiblesUbicacionesRemision) {
+            if (ubicacion && ubicacion.trim() !== "") {
+              remision = ubicacion;
+              break;
+            }
+          }
+
+          const itemTransformado = {
+            id: item.id,
+            unidad_codigo: codigoBarra,
+            valor_unitario: Number(item.valor_unitario) || 0,
+            producto_nombre: productoNombre,
+            remision: remision,
+            temporal_id: item.id || `existing_${index}_${Date.now()}`,
+          };
+
+          console.log(`DEBUG - Item ${index} transformado:`, itemTransformado);
+          return itemTransformado;
+        })
+        .filter(
+          (item) => item.unidad_codigo && item.unidad_codigo.trim() !== ""
         );
 
-        return {
-          id: item.id,
-          unidad_codigo: codigoBarra,
-          valor_unitario: Number(item.valor_unitario) || 0,
-          producto_nombre: productoNombre, // ← Aseguramos que siempre tenga nombre
-          temporal_id: item.id || `existing_${item.id}`,
-        };
-      });
-
-      // Filtrar items que no tengan código de barras válido
-      const itemsValidos = itemsTransformados.filter(
-        (item) => item.unidad_codigo
-      );
-
-      console.log("Items transformados:", itemsValidos);
+      console.log("Items transformados para edición:", itemsTransformados);
 
       setForm({
-        cliente: editing.cliente,
+        cliente: editing.cliente?.id || editing.cliente,
         conductor: editing.conductor || "",
         placa_vehiculo: editing.placa_vehiculo || "",
         origen: editing.origen || "",
-        items_data: itemsValidos,
+        items_data: itemsTransformados,
       });
     } else {
       setForm(initialForm);
@@ -126,38 +214,50 @@ export default function EnvioFormModal({ open, onClose, onSubmit, editing }) {
     setDuplicateError("");
   }, [editing, open, isEdit]);
 
-  // Agregar este useEffect después del useEffect existente que carga los datos de edición
   useEffect(() => {
     if (open) {
       const initialFormData =
         isEdit && editing
           ? {
-              cliente: editing.cliente,
+              cliente: editing.cliente?.id || editing.cliente,
               conductor: editing.conductor || "",
               placa_vehiculo: editing.placa_vehiculo || "",
               origen: editing.origen || "",
               items_data: (editing.items || [])
                 .map((item) => {
+                  // Misma lógica de transformación que arriba
                   const codigoBarra =
                     item.unidad_codigo ||
-                    item.unidad?.codigo_barra ||
                     item.unidad_detalle?.codigo_barra ||
+                    item.unidad?.codigo_barra ||
                     "";
+
                   const productoNombre =
                     item.producto_nombre ||
-                    item.unidad?.carga_item?.producto?.nombre ||
+                    item.unidad_detalle?.producto_nombre ||
                     item.unidad_detalle?.carga_item?.producto?.nombre ||
+                    item.unidad?.carga_item?.producto?.nombre ||
                     "Producto";
+
+                  const remision =
+                    item.unidad_detalle?.remision ||
+                    item.unidad_detalle?.carga_item?.carga?.remision ||
+                    item.unidad?.carga_item?.carga?.remision ||
+                    "N/A";
 
                   return {
                     id: item.id,
                     unidad_codigo: codigoBarra,
                     valor_unitario: Number(item.valor_unitario) || 0,
                     producto_nombre: productoNombre,
+                    remision: remision,
                     temporal_id: item.id || `existing_${item.id}`,
                   };
                 })
-                .filter((item) => item.unidad_codigo),
+                .filter(
+                  (item) =>
+                    item.unidad_codigo && item.unidad_codigo.trim() !== ""
+                ),
             }
           : initialForm;
 
@@ -178,8 +278,8 @@ export default function EnvioFormModal({ open, onClose, onSubmit, editing }) {
       setErrorScan("");
       setDuplicateError("");
       setHasChanges(false);
-      setLastAdded(null);
       setRecentlyAdded(false);
+      setVistaAgrupada(true); // Resetear a vista agrupada
     }
   }, [open]);
 
@@ -211,7 +311,7 @@ export default function EnvioFormModal({ open, onClose, onSubmit, editing }) {
   const handleClienteChange = (selected) => {
     setForm((prev) => ({
       ...prev,
-      cliente: selected ? selected.value : null,
+      cliente: selected ? selected.value : null, // ← Solo el ID, no el objeto completo
       items_data: [], // Limpiar items al cambiar cliente
     }));
   };
@@ -223,6 +323,27 @@ export default function EnvioFormModal({ open, onClose, onSubmit, editing }) {
       valor_unitario: Number(value) || 0,
     };
     setForm((prev) => ({ ...prev, items_data: newItems }));
+  };
+
+  const handleValorUnitarioGrupoChange = (grupoIndex, valorUnitario) => {
+    const grupos = agruparItems(form.items_data);
+    const grupo = grupos[grupoIndex];
+
+    // Actualizar todos los items del grupo con el nuevo valor
+    const nuevosItems = form.items_data.map((item) => {
+      if (
+        item.producto_nombre === grupo.producto_nombre &&
+        item.remision === grupo.remision
+      ) {
+        return {
+          ...item,
+          valor_unitario: Number(valorUnitario) || 0,
+        };
+      }
+      return item;
+    });
+
+    setForm((prev) => ({ ...prev, items_data: nuevosItems }));
   };
 
   const handleAgregarPorCodigo = async () => {
@@ -267,6 +388,11 @@ export default function EnvioFormModal({ open, onClose, onSubmit, editing }) {
         form.cliente
       );
 
+      console.log(
+        "DEBUG - Validation response structure:",
+        JSON.stringify(validation, null, 2)
+      );
+
       if (!validation.valida) {
         setErrorScan(validation.error);
         return;
@@ -276,9 +402,31 @@ export default function EnvioFormModal({ open, onClose, onSubmit, editing }) {
 
       // Obtener el nombre del producto de manera robusta
       const productoNombre =
-        validation.unidad?.carga_item?.producto?.nombre ||
         validation.unidad?.producto_nombre ||
+        validation.unidad?.carga_item?.producto?.nombre ||
         "Producto";
+
+      // OBTENER REMISIÓN - ESTRUCTURA MEJORADA
+      let remision = "N/A";
+
+      // Buscar la remisión en múltiples niveles de la respuesta
+      if (validation.unidad?.remision && validation.unidad.remision !== "N/A") {
+        remision = validation.unidad.remision;
+        console.log(
+          "DEBUG - Remisión encontrada en unidad.remision:",
+          remision
+        );
+      } else if (validation.unidad?.carga_item?.carga?.remision) {
+        remision = validation.unidad.carga_item.carga.remision;
+        console.log(
+          "DEBUG - Remisión encontrada en carga_item.carga.remision:",
+          remision
+        );
+      } else {
+        console.log("DEBUG - No se encontró remisión, usando N/A");
+      }
+
+      console.log("DEBUG - Remisión final:", remision);
 
       const precioReferencia =
         validation.unidad?.carga_item?.producto?.precio_referencia || 0;
@@ -291,13 +439,13 @@ export default function EnvioFormModal({ open, onClose, onSubmit, editing }) {
           {
             unidad_codigo: codigoBarras,
             valor_unitario: precioReferencia,
-            temporal_id: Date.now() + Math.random(),
             producto_nombre: productoNombre,
+            remision: remision,
+            temporal_id: Date.now() + Math.random(),
           },
         ],
       }));
 
-      setLastAdded(codigoBarras);
       setCodigoBarras("");
       setErrorScan("");
       setRecentlyAdded(true);
@@ -341,6 +489,29 @@ export default function EnvioFormModal({ open, onClose, onSubmit, editing }) {
     }
   };
 
+  const handleRemoverGrupo = (grupoIndex) => {
+    const grupos = agruparItems(form.items_data);
+    const grupo = grupos[grupoIndex];
+
+    // Remover todos los items del grupo
+    const nuevosItems = form.items_data.filter(
+      (item) =>
+        !(
+          item.producto_nombre === grupo.producto_nombre &&
+          item.remision === grupo.remision
+        )
+    );
+
+    setForm((prev) => ({ ...prev, items_data: nuevosItems }));
+
+    // Mantener el foco en el input principal
+    if (inputRef.current) {
+      setTimeout(() => {
+        inputRef.current.focus();
+      }, 10);
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
 
@@ -364,7 +535,7 @@ export default function EnvioFormModal({ open, onClose, onSubmit, editing }) {
       return;
     }
 
-    // Preparar items para el backend
+    // Preparar items para el backend (mantener estructura individual)
     const payloadItems = itemsValidos.map((item) => ({
       unidad_codigo: item.unidad_codigo.trim(),
       valor_unitario: item.valor_unitario,
@@ -389,12 +560,14 @@ export default function EnvioFormModal({ open, onClose, onSubmit, editing }) {
   };
 
   const selectedClient = clientOptions.find(
-    (opt) => opt.value === form.cliente
+    (opt) => opt.value === form.cliente // ← Buscar por ID, no por objeto
   );
   const total = form.items_data.reduce(
     (sum, item) => sum + (item.valor_unitario || 0),
     0
   );
+
+  const grupos = agruparItems(form.items_data);
 
   return (
     <Modal
@@ -405,7 +578,7 @@ export default function EnvioFormModal({ open, onClose, onSubmit, editing }) {
       preventClose={hasChanges && !enviosLoading}
       closeConfirmationMessage="¿Está seguro que desea salir? Se perderán los cambios no guardados del envío.">
       <form onSubmit={handleSubmit} className="space-y-6">
-        {/* Campos del formulario (igual que antes) */}
+        {/* Campos del formulario */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="md:col-span-2">
             <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -482,9 +655,19 @@ export default function EnvioFormModal({ open, onClose, onSubmit, editing }) {
 
         {/* Sección de items */}
         <div className="border-t pt-6">
-          <h3 className="text-lg font-medium text-gray-900 mb-4">
-            Agregar items
-          </h3>
+          <div className="flex justify-between items-center mb-4">
+            <h3 className="text-lg font-medium text-gray-900">Agregar items</h3>
+
+            {form.items_data.length > 0 && (
+              <button
+                type="button"
+                onClick={() => setVistaAgrupada(!vistaAgrupada)}
+                className="flex items-center gap-2 px-3 py-1.5 text-sm text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors">
+                <RiExpandUpDownLine />
+                {vistaAgrupada ? "Vista individual" : "Vista agrupada"}
+              </button>
+            )}
+          </div>
 
           <div className="bg-gray-50 p-4 rounded-lg mb-4">
             <div className="flex gap-3">
@@ -555,78 +738,167 @@ export default function EnvioFormModal({ open, onClose, onSubmit, editing }) {
 
           {form.items_data.length > 0 && (
             <div className="space-y-3">
-              <h4 className="font-medium text-gray-700">Items en el envío:</h4>
+              <h4 className="font-medium text-gray-700">
+                {vistaAgrupada ? "Items agrupados:" : "Items individuales:"}
+              </h4>
 
-              {form.items_data.map((item, index) => {
-                const codigo = item.unidad_codigo;
-
-                console.log("DEBUG - Item en lista:", {
-                  codigo: codigo,
-                  nombre: item.producto_nombre,
-                  tieneNombre: !!item.producto_nombre,
-                  tieneCodigo: !!codigo,
-                });
-
-                return (
-                  <div
-                    key={item.temporal_id || item.id}
-                    className={`flex items-center gap-3 p-3 bg-white border rounded-lg transition-all duration-300 ${
-                      lastAdded === item.unidad_codigo
-                        ? "bg-green-50 border-l-4 border-l-green-500"
-                        : ""
-                    }`}>
-                    <div className="flex-1">
-                      {/* NOMBRE DEL PRODUCTO EN GRANDE */}
-                      <p className="font-medium text-gray-900 mb-1">
-                        {item.producto_nombre || "Producto"}
-                      </p>
-
-                      {/* CÓDIGO DE BARRAS PEQUEÑO */}
-                      <p className="font-mono text-xs bg-gray-100 p-1.5 rounded text-gray-600">
-                        {codigo || "Código no disponible"}
-                      </p>
-
-                      {item.id && !codigo && (
-                        <p className="text-xs text-blue-600 mt-1">
-                          ⚡ Item existente - necesita actualización
-                        </p>
-                      )}
-                    </div>
-
-                    <div className="w-32">
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Valor
-                      </label>
-                      <div className="relative">
-                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                          <RiMoneyDollarCircleLine className="h-4 w-4 text-gray-400" />
+              {vistaAgrupada
+                ? /* VISTA AGRUPADA */
+                  grupos.map((grupo, grupoIndex) => (
+                    <div
+                      key={grupoIndex}
+                      className="p-4 bg-white border border-gray-200 rounded-lg shadow-sm">
+                      {/* Header del grupo */}
+                      <div className="flex justify-between items-start mb-3">
+                        <div className="flex-1">
+                          <h5 className="font-semibold text-gray-900 text-lg">
+                            {grupo.producto_nombre} × {grupo.cantidad}
+                          </h5>
+                          <p className="text-sm text-gray-600 mt-1">
+                            Remisión:{" "}
+                            <span className="font-mono">{grupo.remision}</span>
+                          </p>
+                          <p className="text-sm text-gray-500 mt-1">
+                            Valor unitario:{" "}
+                            <span className="font-semibold">
+                              ${grupo.valor_unitario.toFixed(2)}
+                            </span>
+                          </p>
+                          <p className="text-sm text-green-600 font-semibold mt-1">
+                            Total grupo: $
+                            {(grupo.cantidad * grupo.valor_unitario).toFixed(2)}
+                          </p>
                         </div>
-                        <input
-                          type="number"
-                          step="0.01"
-                          min="0"
-                          value={item.valor_unitario}
-                          onChange={(e) =>
-                            handleValorUnitarioChange(index, e.target.value)
-                          }
-                          className="w-full pl-9 pr-3 py-1.5 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-colors"
-                          placeholder="0.00"
-                          required
-                        />
+
+                        <div className="flex gap-2">
+                          {/* Input para editar valor unitario del grupo */}
+                          <div className="w-32">
+                            <label className="block text-xs font-medium text-gray-700 mb-1">
+                              Valor unitario
+                            </label>
+                            <div className="relative">
+                              <div className="absolute inset-y-0 left-0 pl-2 flex items-center pointer-events-none">
+                                <RiMoneyDollarCircleLine className="h-3 w-3 text-gray-400" />
+                              </div>
+                              <input
+                                type="number"
+                                step="0.01"
+                                min="0"
+                                value={grupo.valor_unitario}
+                                onChange={(e) =>
+                                  handleValorUnitarioGrupoChange(
+                                    grupoIndex,
+                                    e.target.value
+                                  )
+                                }
+                                className="w-full pl-6 pr-2 py-1 border border-gray-300 rounded text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500 outline-none transition-colors"
+                                placeholder="0.00"
+                              />
+                            </div>
+                          </div>
+
+                          <button
+                            type="button"
+                            onClick={() => handleRemoverGrupo(grupoIndex)}
+                            className="p-2 text-red-600 hover:bg-red-50 rounded transition-colors self-end"
+                            title="Remover todo el grupo">
+                            <RiSubtractLine />
+                          </button>
+                        </div>
                       </div>
+
+                      {/* Lista de códigos de barras del grupo (colapsable) */}
+                      <details className="mt-2 border-t pt-2">
+                        <summary className="text-sm text-blue-600 cursor-pointer hover:text-blue-800 flex items-center gap-1">
+                          <RiExpandUpDownLine className="h-3 w-3" />
+                          Ver {grupo.cantidad} código(s) de barras individuales
+                        </summary>
+                        <div className="mt-2 space-y-1 max-h-40 overflow-y-auto">
+                          {grupo.items.map((item, itemIndex) => {
+                            const itemIndexGlobal = form.items_data.findIndex(
+                              (i) =>
+                                i.temporal_id === item.temporal_id ||
+                                i.unidad_codigo === item.unidad_codigo
+                            );
+
+                            return (
+                              <div
+                                key={itemIndex}
+                                className="flex justify-between items-center text-xs bg-gray-50 p-2 rounded border">
+                                <span className="font-mono bg-white px-2 py-1 rounded border">
+                                  {item.unidad_codigo}
+                                </span>
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    handleRemoverItem(itemIndexGlobal)
+                                  }
+                                  className="text-red-500 hover:text-red-700 p-1 rounded hover:bg-red-50"
+                                  title="Remover item individual">
+                                  <RiSubtractLine className="h-3 w-3" />
+                                </button>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </details>
                     </div>
+                  ))
+                : /* VISTA INDIVIDUAL (original) */
+                  form.items_data.map((item, index) => {
+                    const codigo = item.unidad_codigo;
 
-                    <button
-                      type="button"
-                      onClick={() => handleRemoverItem(index)}
-                      className="p-2 text-red-600 hover:bg-red-50 rounded transition-colors self-center"
-                      title="Remover item">
-                      <RiSubtractLine />
-                    </button>
-                  </div>
-                );
-              })}
+                    return (
+                      <div
+                        key={item.temporal_id || item.id}
+                        className="flex items-center gap-3 p-3 bg-white border rounded-lg">
+                        <div className="flex-1">
+                          <p className="font-medium text-gray-900 mb-1">
+                            {item.producto_nombre || "Producto"}
+                          </p>
+                          <p className="text-xs text-gray-500">
+                            Rem: {item.remision || "N/A"}
+                          </p>
+                          <p className="font-mono text-xs bg-gray-100 p-1.5 rounded text-gray-600 mt-1">
+                            {codigo || "Código no disponible"}
+                          </p>
+                        </div>
 
+                        <div className="w-32">
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Valor
+                          </label>
+                          <div className="relative">
+                            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                              <RiMoneyDollarCircleLine className="h-4 w-4 text-gray-400" />
+                            </div>
+                            <input
+                              type="number"
+                              step="0.01"
+                              min="0"
+                              value={item.valor_unitario}
+                              onChange={(e) =>
+                                handleValorUnitarioChange(index, e.target.value)
+                              }
+                              className="w-full pl-9 pr-3 py-1.5 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-colors"
+                              placeholder="0.00"
+                              required
+                            />
+                          </div>
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={() => handleRemoverItem(index)}
+                          className="p-2 text-red-600 hover:bg-red-50 rounded transition-colors self-center"
+                          title="Remover item">
+                          <RiSubtractLine />
+                        </button>
+                      </div>
+                    );
+                  })}
+
+              {/* Total */}
               <div className="flex justify-between items-center p-3 bg-blue-50 border border-blue-200 rounded-lg">
                 <span className="font-medium text-blue-900">
                   Valor total del envío:
@@ -635,6 +907,16 @@ export default function EnvioFormModal({ open, onClose, onSubmit, editing }) {
                   ${total.toFixed(2)}
                 </span>
               </div>
+
+              {/* Resumen de grupos */}
+              {vistaAgrupada && grupos.length > 1 && (
+                <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
+                  <p className="text-sm text-green-800 font-medium">
+                    Resumen: {grupos.length} tipo(s) de producto,{" "}
+                    {form.items_data.length} unidad(es) totales
+                  </p>
+                </div>
+              )}
             </div>
           )}
         </div>

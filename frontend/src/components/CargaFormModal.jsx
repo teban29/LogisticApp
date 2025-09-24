@@ -47,7 +47,7 @@ export default function CargaFormModal({
   // Función para obtener TODOS los proveedores de un cliente (todas las páginas)
   const fetchAllProvidersForClient = async (clientId) => {
     if (!clientId) return [];
-    
+
     try {
       let allProviders = [];
       let currentPage = 1;
@@ -58,10 +58,10 @@ export default function CargaFormModal({
           cliente_id: clientId,
           page: currentPage,
         });
-        
+
         const provList = pData?.results || pData || [];
         allProviders = [...allProviders, ...provList];
-        
+
         // Verificar si hay más páginas
         hasNextPage = pData.next !== null && pData.next !== undefined;
         currentPage++;
@@ -113,28 +113,32 @@ export default function CargaFormModal({
         }
         return;
       }
-      
+
       setLoadingOptions(true);
       try {
         // Obtener TODOS los proveedores del cliente
         const allProviders = await fetchAllProvidersForClient(form.cliente);
-        
+
         if (!mounted) return;
-        
+
         setProveedoresOptions(
           allProviders.map((p) => ({
             value: p.id,
             label: `${p.nombre} — ${p.nit || ""}`,
-            raw: p // Guardar el objeto completo para referencia
+            raw: p, // Guardar el objeto completo para referencia
           }))
         );
-        
-        if (!allProviders.some((p) => String(p.id) === String(form.proveedor))) {
+
+        if (
+          !allProviders.some((p) => String(p.id) === String(form.proveedor))
+        ) {
           setForm((f) => ({ ...f, proveedor: "" }));
           setProveedorSearch("");
         } else {
           // Actualizar el texto de búsqueda con el proveedor seleccionado
-          const selectedProvider = allProviders.find((p) => String(p.id) === String(form.proveedor));
+          const selectedProvider = allProviders.find(
+            (p) => String(p.id) === String(form.proveedor)
+          );
           if (selectedProvider) {
             setProveedorSearch(selectedProvider.nombre);
           }
@@ -149,7 +153,7 @@ export default function CargaFormModal({
         if (mounted) setLoadingOptions(false);
       }
     };
-    
+
     loadProvidersForClient();
     return () => {
       mounted = false;
@@ -195,7 +199,7 @@ export default function CargaFormModal({
           cantidad: it.cantidad || 1,
         }))
       );
-      
+
       // Si estamos editando, establecer el texto de búsqueda con el nombre del proveedor
       if (editing.proveedor_nombre) {
         setProveedorSearch(editing.proveedor_nombre);
@@ -276,7 +280,7 @@ export default function CargaFormModal({
     const value = e.target.value;
     setProveedorSearch(value);
     setShowProveedorDropdown(true);
-    
+
     // Si el campo está vacío, limpiar la selección
     if (!value.trim()) {
       setForm((f) => ({ ...f, proveedor: "" }));
@@ -397,8 +401,7 @@ export default function CargaFormModal({
       title={editing ? "Editar carga" : "Crear carga"}
       size="lg"
       preventClose={hasChanges && !saving}
-      closeConfirmationMessage="¿Está seguro que desea salir? Se perderán los cambios no guardados de la carga."
-    >
+      closeConfirmationMessage="¿Está seguro que desea salir? Se perderán los cambios no guardados de la carga.">
       {error && (
         <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-700 rounded-lg flex items-center">
           <RiCloseLine className="text-lg mr-2 flex-shrink-0" />
@@ -451,38 +454,49 @@ export default function CargaFormModal({
                 onFocus={handleProveedorFocus}
                 onBlur={handleProveedorBlur}
                 className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-colors disabled:bg-gray-50 disabled:text-gray-500"
-                placeholder={form.cliente ? "Buscar proveedor..." : "Primero selecciona un cliente"}
+                placeholder={
+                  form.cliente
+                    ? "Buscar proveedor..."
+                    : "Primero selecciona un cliente"
+                }
                 disabled={!form.cliente || loadingOptions}
                 required
               />
-              
+
               {/* Dropdown de proveedores */}
-              {showProveedorDropdown && form.cliente && filteredProveedores.length > 0 && (
-                <div className="absolute z-50 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto">
-                  {filteredProveedores.map((proveedor) => (
-                    <button
-                      key={proveedor.value}
-                      type="button"
-                      onClick={() => selectProveedor(proveedor)}
-                      className="w-full text-left px-4 py-2.5 hover:bg-blue-50 hover:text-blue-700 transition-colors border-b border-gray-100 last:border-b-0"
-                    >
-                      <div className="font-medium">{proveedor.raw.nombre}</div>
-                      {proveedor.raw.nit && (
-                        <div className="text-sm text-gray-500">
-                          NIT: {proveedor.raw.nit}
+              {showProveedorDropdown &&
+                form.cliente &&
+                filteredProveedores.length > 0 && (
+                  <div className="absolute z-50 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                    {filteredProveedores.map((proveedor) => (
+                      <button
+                        key={proveedor.value}
+                        type="button"
+                        onClick={() => selectProveedor(proveedor)}
+                        className="w-full text-left px-4 py-2.5 hover:bg-blue-50 hover:text-blue-700 transition-colors border-b border-gray-100 last:border-b-0">
+                        <div className="font-medium">
+                          {proveedor.raw.nombre}
                         </div>
-                      )}
-                    </button>
-                  ))}
-                </div>
-              )}
-              
+                        {proveedor.raw.nit && (
+                          <div className="text-sm text-gray-500">
+                            NIT: {proveedor.raw.nit}
+                          </div>
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                )}
+
               {/* Mensaje cuando no hay resultados */}
-              {showProveedorDropdown && form.cliente && proveedorSearch && filteredProveedores.length === 0 && (
-                <div className="absolute z-50 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg p-4 text-center text-gray-500">
-                  No se encontraron proveedores que coincidan con "{proveedorSearch}"
-                </div>
-              )}
+              {showProveedorDropdown &&
+                form.cliente &&
+                proveedorSearch &&
+                filteredProveedores.length === 0 && (
+                  <div className="absolute z-50 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg p-4 text-center text-gray-500">
+                    No se encontraron proveedores que coincidan con "
+                    {proveedorSearch}"
+                  </div>
+                )}
             </div>
             {!form.cliente && (
               <p className="text-xs text-gray-500 mt-1 flex items-center gap-1">
@@ -490,12 +504,14 @@ export default function CargaFormModal({
                 Selecciona un cliente para ver sus proveedores
               </p>
             )}
-            {form.cliente && proveedoresOptions.length === 0 && !loadingOptions && (
-              <p className="text-xs text-orange-600 mt-1 flex items-center gap-1">
-                <RiInformationLine className="flex-shrink-0" />
-                Este cliente no tiene proveedores asignados
-              </p>
-            )}
+            {form.cliente &&
+              proveedoresOptions.length === 0 &&
+              !loadingOptions && (
+                <p className="text-xs text-orange-600 mt-1 flex items-center gap-1">
+                  <RiInformationLine className="flex-shrink-0" />
+                  Este cliente no tiene proveedores asignados
+                </p>
+              )}
           </div>
 
           {/* Remisión */}
@@ -565,9 +581,9 @@ export default function CargaFormModal({
               <div
                 key={idx}
                 className="p-4 border border-gray-200 rounded-lg bg-gray-50/50 hover:bg-gray-50 transition-colors">
-                <div className="grid grid-cols-1 md:grid-cols-6 gap-3 items-end">
+                <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
                   {/* Nombre del producto */}
-                  <div className="md:col-span-3">
+                  <div className="md:col-span-5">
                     <label className="block text-xs font-medium text-gray-700 mb-1">
                       Producto <span className="text-red-500">*</span>
                     </label>
@@ -592,7 +608,7 @@ export default function CargaFormModal({
                   </div>
 
                   {/* SKU (opcional) */}
-                  <div className="md:col-span-1">
+                  <div className="md:col-span-3">
                     <label className="block text-xs font-medium text-gray-700 mb-1">
                       SKU (opcional)
                     </label>
@@ -606,8 +622,8 @@ export default function CargaFormModal({
                     />
                   </div>
 
-                  {/* Cantidad */}
-                  <div className="md:col-span-1">
+                  {/* Cantidad - Versión Simple */}
+                  <div className="md:col-span-2">
                     <label className="block text-xs font-medium text-gray-700 mb-1">
                       Cantidad <span className="text-red-500">*</span>
                     </label>
@@ -616,24 +632,42 @@ export default function CargaFormModal({
                         <RiNumbersLine className="h-4 w-4 text-gray-400" />
                       </div>
                       <input
-                        type="number"
-                        min={1}
-                        value={it.cantidad}
-                        onChange={(e) =>
-                          handleItemChange(
-                            idx,
-                            "cantidad",
-                            Number(e.target.value)
-                          )
-                        }
-                        className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-colors"
+                        type="text"
+                        inputMode="numeric"
+                        value={it.cantidad === 0 ? "" : it.cantidad}
+                        onChange={(e) => {
+                          const sanitizedValue = e.target.value.replace(
+                            /[^0-9]/g,
+                            ""
+                          );
+
+                          if (sanitizedValue === "" || sanitizedValue === "0") {
+                            handleItemChange(idx, "cantidad", "");
+                          } else {
+                            // Eliminar ceros iniciales no deseados
+                            const finalValue =
+                              sanitizedValue.replace(/^0+/, "") || "0";
+                            handleItemChange(
+                              idx,
+                              "cantidad",
+                              Number(finalValue)
+                            );
+                          }
+                        }}
+                        onBlur={(e) => {
+                          // Establecer valor por defecto si queda vacío
+                          if (e.target.value === "") {
+                            handleItemChange(idx, "cantidad", 1);
+                          }
+                        }}
+                        placeholder="1"
+                        className="w-full min-w-[100px] pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-colors"
                         required
                       />
                     </div>
                   </div>
-
                   {/* Acciones */}
-                  <div className="flex gap-2 justify-end">
+                  <div className="md:col-span-2 flex gap-2 justify-end">
                     <button
                       type="button"
                       onClick={() => removeItem(idx)}
