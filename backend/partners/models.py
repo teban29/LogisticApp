@@ -3,7 +3,7 @@ from django.db import models
 # Create your models here.
 class Proveedor(models.Model):
     nombre = models.CharField(max_length=100)
-    nit = models.CharField(max_length=50, unique=True, blank=True, null=True)
+    nit = models.CharField(max_length=50, blank=True, null=True)
     email = models.EmailField(blank=True, null=True)
     telefono = models.CharField(blank=True, null=True, max_length=50)
     ciudad = models.CharField(blank=True, null=True, max_length=50)
