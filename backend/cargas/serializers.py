@@ -14,10 +14,12 @@ class UnidadSerializer(serializers.ModelSerializer):
     cliente_id = serializers.IntegerField(source='carga_item.carga.cliente.id', read_only=True)
     producto_nombre = serializers.CharField(source='carga_item.producto.nombre', read_only=True)
     producto_sku = serializers.CharField(source='carga_item.producto.sku', read_only=True)
+    remision = serializers.CharField(source='carga_item.carga.remision', read_only=True)
+    carga_id = serializers.IntegerField(source='carga_item.carga.id', read_only=True)
     
     class Meta:
         model = Unidad
-        fields = ['id', 'codigo_barra', 'estado', 'cliente_nombre', 'cliente_id', 'producto_nombre', 'producto_sku', 'created_at']
+        fields = ['id', 'codigo_barra', 'estado', 'cliente_nombre', 'cliente_id', 'producto_nombre', 'producto_sku', 'remision', 'carga_id','created_at']
 
 class CargaItemWriteSerializer(serializers.Serializer):
     producto_id = serializers.IntegerField(required=False)

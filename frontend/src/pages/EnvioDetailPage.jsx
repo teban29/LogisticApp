@@ -23,7 +23,7 @@ import {
   RiFileTextLine,
   RiCheckLine,
 } from "react-icons/ri";
-import { getEnvio } from "../api/envios";
+
 
 const ESTADOS_ENVIO = {
   borrador: {
@@ -86,24 +86,7 @@ const getProductoNombre = (item) => {
   return "Producto";
 };
 
-const getRemision = (item) => {
-  if (item.unidad && item.unidad.carga_item && item.unidad.carga_item.carga) {
-    return item.unidad.carga_item.carga.remision || "N/A";
-  }
-  return "N/A";
-};
 
-const getProveedor = (item) => {
-  if (
-    item.unidad &&
-    item.unidad.carga_item &&
-    item.unidad.carga_item.carga &&
-    item.unidad.carga_item.carga.proveedor
-  ) {
-    return item.unidad.carga_item.carga.proveedor.nombre || "N/A";
-  }
-  return "N/A";
-};
 
 export default function EnvioDetailPage() {
   const { id } = useParams();
@@ -111,7 +94,7 @@ export default function EnvioDetailPage() {
   const { user } = useAuth();
   const isAdmin = user?.rol === "admin";
 
-  const { getEnvio, actualizarEnvio, loading, error } = useEnvios();
+  const { getEnvio, actualizarEnvio, error } = useEnvios();
   const [envio, setEnvio] = useState(null);
   const [loadingEnvio, setLoadingEnvio] = useState(true);
 
@@ -259,12 +242,7 @@ export default function EnvioDetailPage() {
   const handleSubmitEdit = async (payload, editingId) => {
     try {
       await actualizarEnvio(editingId, payload);
-      const data = await fetchEnvios({ id: parseInt(id) });
-      if (data.results && data.results.length > 0) {
-        setEnvio(data.results[0]);
-      } else if (Array.isArray(data) && data.length > 0) {
-        setEnvio(data[0]);
-      }
+      await reloadEnvioDetails();
       setOpenEditModal(false);
     } catch (err) {
       console.error("Error updating envio:", err);
@@ -486,7 +464,71 @@ export default function EnvioDetailPage() {
                 Items del Envío ({envio.items?.length || 0})
               </h2>
 
-              {envio.items && envio.items.length > 0 ? (
+              {envio.items_agrupados && envio.items_agrupados.length > 0 ? (
+                <div className="space-y-4">
+                  {envio.items_agrupados.map((grupo, index) => (
+                    <div key={index} className="p-4 bg-gray-50 rounded-lg border">
+                      <div className="flex justify-between items-start mb-3">
+                        <div className="flex-1">
+                          <h5 className="font-semibold text-gray-900 text-xl">
+                            {grupo.producto} <span className="text-gray-500 font-normal">×</span> {grupo.cantidad}
+                          </h5>
+                          <p className="text-sm text-gray-600 mt-1">
+                            Remisión:{" "}
+                            <span className="font-mono bg-gray-200 px-2 py-0.5 rounded">{grupo.remision}</span>
+                          </p>
+                          {isAdmin && (
+                            <p className="text-sm text-gray-500 mt-1">
+                              Valor unitario:{" "}
+                              <span className="font-semibold text-gray-800">
+                                ${Number(grupo.valor_unitario).toFixed(2)}
+                              </span>
+                            </p>
+                          )}
+                        </div>
+                        {isAdmin && (
+                          <div className="text-right">
+                            <p className="font-bold text-green-600 text-xl">
+                              ${(grupo.cantidad * grupo.valor_unitario).toFixed(2)}
+                            </p>
+                            <p className="text-sm text-gray-500">Subtotal</p>
+                          </div>
+                        )}
+                      </div>
+                      
+                      <details className="mt-3 border-t border-gray-200 pt-3">
+                        <summary className="text-sm text-blue-600 cursor-pointer hover:text-blue-800 flex items-center gap-1 font-medium">
+                          Ver {grupo.cantidad} código(s) de barras
+                        </summary>
+                        <div className="mt-2 space-y-2 max-h-48 overflow-y-auto pr-2">
+                          {(envio.items || [])
+                            .filter(item => grupo.items_ids.includes(item.id))
+                            .map(item => (
+                              <div key={item.id} className="flex justify-between items-center text-sm bg-white p-2 rounded border border-gray-200">
+                                <span className="font-mono text-gray-700">
+                                  {getCodigoBarra(item)}
+                                </span>
+                              </div>
+                            ))}
+                        </div>
+                      </details>
+                    </div>
+                  ))}
+
+                  {/* Total */}
+                  {isAdmin && (
+                    <div className="flex justify-between items-center p-4 bg-blue-50 border border-blue-200 rounded-lg mt-6">
+                      <span className="text-lg font-semibold text-blue-900">
+                        Total del envío:
+                      </span>
+                      <span className="text-2xl font-bold text-blue-900">
+                        ${Number(envio.valor_total).toFixed(2)}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              ) : envio.items && envio.items.length > 0 ? (
+                // Fallback a la vista individual si no hay items agrupados
                 <div className="space-y-4">
                   {envio.items.map((item, index) => {
                     const codigoBarra = getCodigoBarra(item);
@@ -513,7 +555,7 @@ export default function EnvioDetailPage() {
                         {isAdmin && (
                           <div className="text-right">
                             <p className="font-semibold text-gray-900 text-lg">
-                              ${item.valor_unitario || 0}
+                              ${Number(item.valor_unitario || 0).toFixed(2)}
                             </p>
                             <p className="text-sm text-gray-500">
                               Valor unitario
@@ -523,15 +565,13 @@ export default function EnvioDetailPage() {
                       </div>
                     );
                   })}
-
-                  {/* Total */}
                   {isAdmin && (
                     <div className="flex justify-between items-center p-4 bg-blue-50 border border-blue-200 rounded-lg mt-6">
                       <span className="text-lg font-semibold text-blue-900">
                         Total del envío:
                       </span>
                       <span className="text-2xl font-bold text-blue-900">
-                        ${envio.valor_total}
+                        ${Number(envio.valor_total).toFixed(2)}
                       </span>
                     </div>
                   )}
