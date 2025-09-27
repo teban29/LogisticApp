@@ -198,7 +198,71 @@ export default function EnvioDetailModal({ open, onClose, envio }) {
         <div className="bg-gray-50 rounded-lg p-4">
           <h3 className="font-medium text-gray-900 mb-4">Items del Envío</h3>
 
-          {envio.items && envio.items.length > 0 ? (
+          {envio.items_agrupados && envio.items_agrupados.length > 0 ? (
+            <div className="space-y-3">
+              {envio.items_agrupados.map((grupo, index) => (
+                <div key={index} className="p-4 bg-white border border-gray-200 rounded-lg shadow-sm">
+                  <div className="flex justify-between items-start mb-3">
+                    <div className="flex-1">
+                      <h5 className="font-semibold text-gray-900 text-lg">
+                        {grupo.producto} × {grupo.cantidad}
+                      </h5>
+                      <p className="text-sm text-gray-600 mt-1">
+                        Remisión:{" "}
+                        <span className="font-mono">{grupo.remision}</span>
+                      </p>
+                      {isAdmin && (
+                        <p className="text-sm text-gray-500 mt-1">
+                          Valor unitario:{" "}
+                          <span className="font-semibold">
+                            ${Number(grupo.valor_unitario).toFixed(2)}
+                          </span>
+                        </p>
+                      )}
+                    </div>
+                    {isAdmin && (
+                      <div className="text-right">
+                        <p className="font-bold text-green-600 text-lg">
+                          ${(grupo.cantidad * grupo.valor_unitario).toFixed(2)}
+                        </p>
+                        <p className="text-xs text-gray-500">Subtotal</p>
+                      </div>
+                    )}
+                  </div>
+                  
+                  <details className="mt-2 border-t pt-2">
+                    <summary className="text-sm text-blue-600 cursor-pointer hover:text-blue-800 flex items-center gap-1">
+                      Ver {grupo.cantidad} código(s) de barras
+                    </summary>
+                    <div className="mt-2 space-y-1 max-h-40 overflow-y-auto">
+                      {(envio.items || [])
+                        .filter(item => grupo.items_ids.includes(item.id))
+                        .map(item => (
+                          <div key={item.id} className="flex justify-between items-center text-xs bg-gray-100 p-2 rounded">
+                            <span className="font-mono">
+                              {getCodigoBarra(item)}
+                            </span>
+                          </div>
+                        ))}
+                    </div>
+                  </details>
+                </div>
+              ))}
+
+              {/* Total */}
+              {isAdmin && (
+                <div className="flex justify-between items-center p-4 bg-blue-50 border border-blue-200 rounded-lg mt-4">
+                  <span className="font-medium text-blue-900">
+                    Valor Total del Envío:
+                  </span>
+                  <span className="text-xl font-bold text-blue-900">
+                    ${Number(envio.valor_total).toFixed(2)}
+                  </span>
+                </div>
+              )}
+            </div>
+          ) : envio.items && envio.items.length > 0 ? (
+            // Fallback a la vista individual si no hay items agrupados
             <div className="space-y-3">
               {envio.items.map((item, index) => {
                 const codigoBarra = getCodigoBarra(item);
@@ -225,7 +289,7 @@ export default function EnvioDetailModal({ open, onClose, envio }) {
                     {isAdmin && (
                       <div className="text-right">
                         <p className="font-medium text-sm">
-                          ${item.valor_unitario || 0}
+                          ${Number(item.valor_unitario || 0).toFixed(2)}
                         </p>
                         <p className="text-xs text-gray-500">Valor unitario</p>
                       </div>
@@ -233,15 +297,13 @@ export default function EnvioDetailModal({ open, onClose, envio }) {
                   </div>
                 );
               })}
-
-              {/* Total */}
               {isAdmin && (
-                <div className="flex justify-between items-center p-3 bg-blue-50 border border-blue-200 rounded-lg mt-4">
+                <div className="flex justify-between items-center p-4 bg-blue-50 border border-blue-200 rounded-lg mt-4">
                   <span className="font-medium text-blue-900">
-                    Total del envío:
+                    Valor Total del Envío:
                   </span>
-                  <span className="text-lg font-bold text-blue-900">
-                    ${envio.valor_total}
+                  <span className="text-xl font-bold text-blue-900">
+                    ${Number(envio.valor_total).toFixed(2)}
                   </span>
                 </div>
               )}

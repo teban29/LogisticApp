@@ -287,7 +287,7 @@ class CargaViewSet(viewsets.ModelViewSet):
 
 
 class UnidadViewSet(viewsets.ReadOnlyModelViewSet):
-    queryset = Unidad.objects.select_related('carga_item__carga__cliente', 'carga_item__producto').all().order_by('id')
+    queryset = Unidad.objects.select_related('carga_item__carga__cliente', 'carga_item__producto', 'carga_item__carga').all().order_by('id')
     serializer_class = UnidadSerializer
     permission_classes = [IsAdminRole]
     parser_classes = [JSONParser]

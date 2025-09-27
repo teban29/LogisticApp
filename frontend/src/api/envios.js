@@ -52,7 +52,8 @@ export const cambiarEstadoEnvio = async (envioId, estado) => {
   return response.data;
 };
 
-// Versión mejorada de validarUnidadParaEnvio
+
+// Versión CORREGIDA de validarUnidadParaEnvio
 export const validarUnidadParaEnvio = async (codigoBarra, clienteId) => {
   try {
     // Primero intentar con el endpoint específico
@@ -62,22 +63,13 @@ export const validarUnidadParaEnvio = async (codigoBarra, clienteId) => {
       );
       const unidad = response.data;
 
-      console.log("DEBUG - Estructura de unidad:", unidad);
+      console.log("DEBUG - Estructura completa de unidad:", unidad);
 
       // Verificar que pertenece al cliente
-      const unidadClienteId =
-        unidad.cliente_id ||
-        (unidad.carga_item &&
-          unidad.carga_item.carga &&
-          unidad.carga_item.carga.cliente);
+      const unidadClienteId = unidad.cliente_id;
 
       if (unidadClienteId !== clienteId) {
-        const clienteNombre =
-          unidad.cliente_nombre ||
-          (unidad.carga_item &&
-            unidad.carga_item.carga &&
-            unidad.carga_item.carga.cliente_nombre) ||
-          `Cliente ID: ${unidadClienteId}`;
+        const clienteNombre = unidad.cliente_nombre || `Cliente ID: ${unidadClienteId}`;
         return {
           valida: false,
           error: `La unidad no pertenece a este cliente. Pertenece a: ${clienteNombre}`,
@@ -92,27 +84,43 @@ export const validarUnidadParaEnvio = async (codigoBarra, clienteId) => {
         };
       }
 
-      // Extraer el nombre del producto correctamente
+      // EXTRAER INFORMACIÓN COMPLETA DE LA UNIDAD
       let productoNombre = "Producto";
       let precioReferencia = 0;
+      let remision = "N/A";
 
-      if (unidad.carga_item && unidad.carga_item.producto) {
-        productoNombre = unidad.carga_item.producto.nombre || "Producto";
-        precioReferencia = unidad.carga_item.producto.precio_referencia || 0;
-      } else if (unidad.producto_nombre) {
+      // Obtener nombre del producto
+      if (unidad.producto_nombre) {
         productoNombre = unidad.producto_nombre;
       }
+
+      // OBTENER LA REMISIÓN - CLAVE PARA LA AGRUPACIÓN
+      if (unidad.remision) {
+        remision = unidad.remision; // ← Remisión directa del serializer
+      }
+
+      console.log("DEBUG - Información extraída:", {
+        productoNombre,
+        remision,
+        precioReferencia
+      });
 
       return {
         valida: true,
         unidad: {
-          ...unidad,
+          ...unidad, // ← Mantener todos los datos originales
+          // Agregar estructura adicional para fácil acceso
+          producto_nombre: productoNombre,
+          remision: remision,
           carga_item: {
             producto: {
               nombre: productoNombre,
               precio_referencia: precioReferencia,
             },
-          },
+            carga: {
+              remision: remision // ← Remisión en estructura anidada también
+            }
+          }
         },
       };
     } catch (specificError) {
@@ -128,7 +136,6 @@ export const validarUnidadParaEnvio = async (codigoBarra, clienteId) => {
   }
 };
 
-// NUEVA FUNCIÓN: Obtener información del producto SIN validaciones de cliente
 export const obtenerInfoProductoPorCodigo = async (codigoBarra) => {
   try {
     // Primero intentar con el endpoint específico
@@ -158,20 +165,22 @@ export const obtenerInfoProductoPorCodigo = async (codigoBarra) => {
         codigo_barra: codigoBarra,
       };
     } catch (specificError) {
-      console.log("Endpoint específico falló, usando general...", specificError);
+      console.log(
+        "Endpoint específico falló, usando general...",
+        specificError
+      );
       return await obtenerInfoProductoGeneral(codigoBarra);
     }
   } catch (err) {
     console.error("Error al obtener info del producto:", err);
-    return { 
-      encontrado: false, 
-      producto_nombre: "Producto", 
-      error: "Error al consultar producto" 
+    return {
+      encontrado: false,
+      producto_nombre: "Producto",
+      error: "Error al consultar producto",
     };
   }
 };
 
-// Función helper para endpoint general (sin validaciones)
 const obtenerInfoProductoGeneral = async (codigoBarra) => {
   try {
     const response = await api.get(`/api/cargas/unidades/`);
@@ -180,10 +189,10 @@ const obtenerInfoProductoGeneral = async (codigoBarra) => {
     const unidad = todasLasUnidades.find((u) => u.codigo_barra === codigoBarra);
 
     if (!unidad) {
-      return { 
-        encontrado: false, 
-        producto_nombre: "Producto", 
-        error: "Código de barras no encontrado" 
+      return {
+        encontrado: false,
+        producto_nombre: "Producto",
+        error: "Código de barras no encontrado",
       };
     }
 
@@ -206,10 +215,10 @@ const obtenerInfoProductoGeneral = async (codigoBarra) => {
     };
   } catch (err) {
     console.error("Error en consulta general:", err);
-    return { 
-      encontrado: false, 
-      producto_nombre: "Producto", 
-      error: "Error al consultar producto" 
+    return {
+      encontrado: false,
+      producto_nombre: "Producto",
+      error: "Error al consultar producto",
     };
   }
 };
@@ -227,13 +236,9 @@ const validarConEndpointGeneral = async (codigoBarra, clienteId) => {
     }
 
     // Verificar cliente
-    const unidadClienteId =
-      unidad.carga_item?.carga?.cliente || unidad.cliente_id;
+    const unidadClienteId = unidad.cliente_id;
     if (unidadClienteId !== clienteId) {
-      const clienteNombre =
-        unidad.carga_item?.carga?.cliente_nombre ||
-        unidad.cliente_nombre ||
-        `Cliente ID: ${unidadClienteId}`;
+      const clienteNombre = unidad.cliente_nombre || `Cliente ID: ${unidadClienteId}`;
       return {
         valida: false,
         error: `La unidad no pertenece a este cliente. Pertenece a: ${clienteNombre}`,
@@ -247,24 +252,33 @@ const validarConEndpointGeneral = async (codigoBarra, clienteId) => {
       };
     }
 
-    // Extraer nombre del producto
+    // Extraer información completa
     let productoNombre = "Producto";
-    if (unidad.carga_item && unidad.carga_item.producto) {
-      productoNombre = unidad.carga_item.producto.nombre || "Producto";
-    } else if (unidad.producto_nombre) {
+    let remision = "N/A";
+
+    if (unidad.producto_nombre) {
       productoNombre = unidad.producto_nombre;
+    }
+
+    // Obtener remisión
+    if (unidad.remision) {
+      remision = unidad.remision;
     }
 
     return {
       valida: true,
       unidad: {
         ...unidad,
+        producto_nombre: productoNombre,
+        remision: remision,
         carga_item: {
           producto: {
             nombre: productoNombre,
-            precio_referencia:
-              unidad.carga_item?.producto?.precio_referencia || 0,
+            precio_referencia: 0,
           },
+          carga: {
+            remision: remision
+          }
         },
       },
     };
@@ -274,10 +288,14 @@ const validarConEndpointGeneral = async (codigoBarra, clienteId) => {
   }
 };
 
-export const escanearItemEntrega = async (envioId, codigoBarra, escaneadoPor = '') => {
+export const escanearItemEntrega = async (
+  envioId,
+  codigoBarra,
+  escaneadoPor = ""
+) => {
   const response = await api.post(`/api/envios/${envioId}/escanear-item/`, {
     codigo_barra: codigoBarra,
-    escaneado_por: escaneadoPor || 'Sistema'
+    escaneado_por: escaneadoPor || "Sistema",
   });
   return response.data;
 };
@@ -293,7 +311,9 @@ export const obtenerItemsPendientes = async (envioId) => {
 };
 
 export const forzarCompletarEntrega = async (envioId) => {
-  const response = await api.post(`/api/envios/${envioId}/forzar-completar-entrega/`);
+  const response = await api.post(
+    `/api/envios/${envioId}/forzar-completar-entrega/`
+  );
   return response.data;
 };
 
