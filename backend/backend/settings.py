@@ -17,16 +17,23 @@ from datetime import timedelta
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
-load_dotenv(BASE_DIR / '.env')
+
+# Intentar cargar el archivo .env, si no existe, usar configuración de desarrollo
+env_path = BASE_DIR / '.env'
+if env_path.exists():
+    load_dotenv(env_path)
+    USING_ENV_FILE = True
+else:
+    USING_ENV_FILE = False
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = os.getenv('SECRET_KEY', 'inseguro-dev-key')
+SECRET_KEY = os.getenv('SECRET_KEY', 'inseguro-dev-key-django-local')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = os.getenv('DEBUG', 'False') == 'True'
+DEBUG = os.getenv('DEBUG', 'True') == 'True'
 
 # Configuración de hosts permitidos
 ALLOWED_HOSTS_STR = os.getenv('ALLOWED_HOSTS', '')
@@ -91,13 +98,29 @@ WSGI_APPLICATION = 'backend.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+# Configuración de base de datos: SQLite3 para desarrollo, PostgreSQL para producción
+if USING_ENV_FILE and all(os.getenv(key) for key in ['DB_NAME', 'DB_USER', 'DB_PASSWORD']):
+    # Usar PostgreSQL si hay archivo .env y todas las variables de BD están configuradas
+    DATABASES = {
+        'default': {
+            "ENGINE": "django.db.backends.postgresql",
+            "NAME": os.getenv("DB_NAME"),
+            "USER": os.getenv("DB_USER"),
+            "PASSWORD": os.getenv("DB_PASSWORD"),
+            "HOST": os.getenv("DB_HOST", "localhost"),
+            "PORT": os.getenv("DB_PORT", "5432"),
+        }
     }
-}
-
+    print("✓ Usando base de datos PostgreSQL")
+else:
+    # Usar SQLite3 para desarrollo local
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.sqlite3',
+            'NAME': BASE_DIR / 'db.sqlite3',
+        }
+    }
+    print("✓ Usando base de datos SQLite3 para desarrollo")
 
 # Password validation
 # https://docs.djangoproject.com/en/5.2/ref/settings/#auth-password-validators
@@ -209,3 +232,10 @@ CORS_ALLOWED_ORIGINS = [
     "http://31.97.10.251:5173",
     "http://31.97.10.251",
 ]
+
+# Configuración adicional para desarrollo
+if not USING_ENV_FILE:
+    # Configuraciones específicas para desarrollo sin .env
+    print("⚠️  Modo desarrollo: usando configuración local sin archivo .env")
+    DEBUG = True
+    # Asegurar que DEBUG esté en True cuando no hay .env
