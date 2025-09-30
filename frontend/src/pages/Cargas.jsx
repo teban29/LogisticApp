@@ -687,17 +687,32 @@ export default function Cargas() {
               </div>
             </div>
 
-            <div className="flex">
+            <div className="flex flex-wrap gap-3">
               <button
                 onClick={() => {
                   setOpenDetail(false);
                   navigate(`/cargas/${currentCargaDetail.id}`);
                 }}
                 className="flex items-center gap-2 px-4 py-2 bg-blue-50 hover:bg-blue-100 text-blue-700 font-medium rounded-lg transition-colors border border-blue-200 shadow-none"
-                style={{ fontSize: "15px" }}>
+                style={{ fontSize: "15px" }}
+              >
                 <RiEyeLine className="text-blue-500 text-base" />
                 Ver más detalles
               </button>
+              {!isCliente && (
+                <button
+                  onClick={() =>
+                    imprimirEtiquetasCarga(
+                      currentCargaDetail.id,
+                      currentCargaDetail.cliente
+                    )
+                  }
+                  className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                >
+                  <RiPrinterLine />
+                  Imprimir todas las etiquetas
+                </button>
+              )}
             </div>
 
             <div className="border-t pt-4">
@@ -716,19 +731,6 @@ export default function Cargas() {
                       <RiDownloadLine />
                       Descargar factura
                     </a>
-                    {!isCliente && (
-                      <button
-                        onClick={() =>
-                          imprimirEtiquetasCarga(
-                            currentCargaDetail.id,
-                            currentCargaDetail.cliente
-                          )
-                        }
-                        className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors">
-                        <RiPrinterLine />
-                        Imprimir todas las etiquetas
-                      </button>
-                    )}
                   </div>
 
                   {/* Vista previa de factura */}

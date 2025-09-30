@@ -164,6 +164,13 @@ class CargaSerializer(serializers.ModelSerializer):
         Si llega factura (archivo) lo actualiza normalmente.
         """
         items_raw = validated_data.pop('items_data', None)
+
+        if isinstance(items_raw, str):
+            try:
+                items_raw = json.loads(items_raw)
+            except json.JSONDecodeError:
+                raise serializers.ValidationError({'items_data': 'JSON inválido.'})
+
         # actualizar campos simples
         for attr, val in validated_data.items():
             setattr(instance, attr, val)
