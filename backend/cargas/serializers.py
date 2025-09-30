@@ -161,9 +161,9 @@ class CargaSerializer(serializers.ModelSerializer):
     def update(self, instance, validated_data):
         """
         Actualiza la carga. Si llega 'items_data' -> reemplaza items (borrar y crear).
-        Si llega factura (archivo) lo actualiza normalmente.
         """
         items_raw = validated_data.pop('items_data', None)
+        auto = validated_data.pop('auto_generar_unidades', True)
 
         if isinstance(items_raw, str):
             try:
@@ -171,23 +171,26 @@ class CargaSerializer(serializers.ModelSerializer):
             except json.JSONDecodeError:
                 raise serializers.ValidationError({'items_data': 'JSON inválido.'})
 
-        # actualizar campos simples
+        # Actualizar campos simples
         for attr, val in validated_data.items():
             setattr(instance, attr, val)
+        
         instance.save()
 
-        # Si nos dieron items_data, reemplazamos los items
+        # Manejar actualización de items si se proporcionan
         if items_raw is not None:
-            # validar items
+            # Validar items
             item_serializer = CargaItemWriteSerializer(data=items_raw, many=True)
             item_serializer.is_valid(raise_exception=True)
             items_valid = item_serializer.validated_data
 
-            # eliminar items existentes (y sus unidades por cascade)
+            # Eliminar items existentes y sus unidades
             instance.items.all().delete()
 
+            # Crear nuevos items
             items_to_create = []
             for it in items_valid:
+                # Resolver/crear producto (misma lógica que en create)
                 if it.get('producto_id'):
                     producto = Producto.objects.get(pk=it['producto_id'])
                 else:
@@ -215,4 +218,10 @@ class CargaSerializer(serializers.ModelSerializer):
 
             if items_to_create:
                 CargaItem.objects.bulk_create(items_to_create)
+
+            # Regenerar unidades si está habilitado
+            if auto and items_to_create:
+                from .services import generar_unidades_para_carga
+                generar_unidades_para_carga(instance)
+
         return instance

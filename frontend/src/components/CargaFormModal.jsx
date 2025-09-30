@@ -366,13 +366,15 @@ export default function CargaFormModal({
       remision: form.remision,
       observaciones: form.observaciones,
       auto_generar_unidades: !!form.auto_generar_unidades,
-      items: items.map((it) => ({
+      items_data: items.map((it) => ({
         producto_nombre: it.producto_nombre,
         producto_sku: it.producto_sku || undefined,
         cantidad: Number(it.cantidad),
       })),
       facturaFile: form.facturaFile,
     };
+
+    console.log("Payload para editar:", JSON.stringify(payload, null, 2));
 
     try {
       await onSubmit(payload, editing?.id || null);
