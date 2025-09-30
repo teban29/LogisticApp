@@ -1,6 +1,6 @@
 from rest_framework import viewsets, decorators, response, status
 from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
-from django.db.models import Prefetch
+from django.db.models import Prefetch, Count
 from django.http import HttpResponse
 from .models import Carga, Unidad, CargaItem, Producto
 from .serializers import CargaSerializer, UnidadSerializer, ProductoSerializer
@@ -46,7 +46,12 @@ class CargaViewSet(viewsets.ModelViewSet):
     queryset = (
         Carga.objects
         .select_related('cliente', 'proveedor')
-        .prefetch_related(Prefetch('items', queryset=CargaItem.objects.select_related('producto')))
+        .prefetch_related(Prefetch(
+            'items',
+            queryset=CargaItem.objects.select_related('producto').annotate(
+                unidades_count=Count('unidades')
+            )
+        ))
         .order_by('-created_at')
     )
     serializer_class = CargaSerializer

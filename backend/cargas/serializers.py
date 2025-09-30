@@ -34,15 +34,15 @@ class CargaItemWriteSerializer(serializers.Serializer):
         return attrs
 
 class CargaItemReadSerializer(serializers.ModelSerializer):
-    producto = ProductoSerializer()
-    unidades_count = serializers.IntegerField(source='unidades.count', read_only=True)
+    producto = ProductoSerializer(read_only=True)
+    unidades_count = serializers.IntegerField(read_only=True)
 
     class Meta:
         model = CargaItem
         fields = ['id', 'producto', 'cantidad', 'unidades_count', 'created_at']
 
 class CargaSerializer(serializers.ModelSerializer):
-    items = serializers.SerializerMethodField(read_only=True)
+    items = CargaItemReadSerializer(many=True, read_only=True)
     items_data = serializers.JSONField(write_only=True, required=False)
     auto_generar_unidades = serializers.BooleanField(write_only=True, required=False, default=True)
 
@@ -86,23 +86,6 @@ class CargaSerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError("Solo puede crear cargas para su cliente asignado")
         
         return attrs
-
-    def get_items(self, obj):
-        return [
-            {
-                'id': it.id,
-                'producto': {
-                    'id': it.producto_id,
-                    'sku': it.producto.sku,
-                    'nombre': it.producto.nombre,
-                    'unidad': it.producto.unidad,
-                },
-                'cantidad': it.cantidad,
-                'unidades_count': it.unidades.count(),
-                'created_at': it.created_at,
-            }
-            for it in obj.items.select_related('producto')
-        ]
 
     @transaction.atomic
     def create(self, validated_data):
