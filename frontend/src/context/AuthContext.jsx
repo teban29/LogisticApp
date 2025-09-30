@@ -6,6 +6,7 @@ const AuthContext = createContext(null);
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [isHydrated, setIsHydrated] = useState(false); // ← Nuevo estado
 
   const refreshToken = async () => {
     try {
@@ -30,7 +31,6 @@ export function AuthProvider({ children }) {
       return data;
     } catch (err) {
       if (err.response?.status === 401) {
-        // Token expirado, intentar renovar
         try {
           await refreshToken();
           const { data } = await api.get('/api/auth/me/');
@@ -49,29 +49,32 @@ export function AuthProvider({ children }) {
 
   useEffect(() => {
     const init = async () => {
-      const access = localStorage.getItem('access');
-      if (access) {
-        try {
-          await fetchMe();
-        } catch (_) {
-          // ya manejado dentro de fetchMe
+      // Solo ejecutar en el cliente
+      if (typeof window !== 'undefined') {
+        const access = localStorage.getItem('access');
+        if (access) {
+          try {
+            await fetchMe();
+          } catch (_) {
+            // ya manejado dentro de fetchMe
+          }
         }
+        setLoading(false);
+        setIsHydrated(true); // ← Marcar que la hidratación terminó
       }
-      setLoading(false);
     };
     init();
 
-    // Verificar token periódicamente (cada 30 minutos)
     const interval = setInterval(async () => {
-      const access = localStorage.getItem('access');
-      if (access) {
-        try {
-          await fetchMe();
-        } catch (_) {
-          // Silencioso, no hacer nada si falla
+      if (typeof window !== 'undefined') {
+        const access = localStorage.getItem('access');
+        if (access) {
+          try {
+            await fetchMe();
+          } catch (_) {}
         }
       }
-    }, 30 * 60 * 1000); // 30 minutos
+    }, 30 * 60 * 1000);
 
     return () => clearInterval(interval);
   }, []);
@@ -90,7 +93,14 @@ export function AuthProvider({ children }) {
     setUser(null);
   };
 
-  const value = useMemo(() => ({ user, login, logout, loading, fetchMe }), [user, loading]);
+  const value = useMemo(() => ({ 
+    user, 
+    login, 
+    logout, 
+    loading, 
+    fetchMe,
+    isHydrated // ← Exponer este estado
+  }), [user, loading, isHydrated]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

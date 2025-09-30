@@ -1,14 +1,20 @@
-import { Navigate, Outlet } from "react-router-dom";
-import { useAuth } from "../context/AuthContext";
+import { Navigate, Outlet } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
 
-export default function RoleProtected({ allowedRoles = [] }) {
-  const { user, loading } = useAuth();
+export default function RoleProtected({ allowedRoles }) {
+  const { user, isHydrated } = useAuth();
 
-  if (loading) return null;
-  if (!user) return <Navigate to="/login" replace />;
+  if (!isHydrated) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+      </div>
+    );
+  }
 
-  if (allowedRoles.length === 0) return <Outlet />;
-  if (!allowedRoles.includes(user.rol)) return <Navigate to="/" replace />;
+  if (!user || !allowedRoles.includes(user.rol)) {
+    return <Navigate to="/" replace />;
+  }
 
   return <Outlet />;
 }
