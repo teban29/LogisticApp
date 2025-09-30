@@ -1,16 +1,25 @@
 import { useState } from "react";
 import Sidebar from "../components/Sidebar";
 import { Outlet } from "react-router-dom";
-import { RiMenuLine, RiNotification3Line, RiSearchLine } from "react-icons/ri";
+import { RiMenuLine } from "react-icons/ri";
 import { useAuth } from "../context/AuthContext";
 
 export default function AppLayout() {
   const [open, setOpen] = useState(false);
-  const { user } = useAuth();
+  const { user, isHydrated } = useAuth(); // ← Agregar isHydrated
+  
+  // Evitar render durante hidratación
+  if (!isHydrated) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+      </div>
+    );
+  }
+
   const userInitials = (user?.nombre?.[0] || "").concat(user?.apellido?.[0] || "").toUpperCase() || "US";
 
   return (
-    // Layout principal con fondo coherente
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-blue-50/30 lg:pl-72">
       {/* Sidebar fijo */}
       <Sidebar open={open} setOpen={setOpen} />

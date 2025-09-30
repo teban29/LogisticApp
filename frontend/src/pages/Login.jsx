@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useAuth } from "../context/AuthContext";
 import { useNavigate } from "react-router-dom";
 import { RiUserLine, RiLockLine, RiEyeLine, RiEyeOffLine, RiArrowRightLine } from "react-icons/ri";
@@ -6,11 +6,18 @@ import logo from "../assets/logo.png"
 
 export default function Login() {
   const navigate = useNavigate();
-  const { login } = useAuth();
+  const { login, user, loading: authLoading, isHydrated } = useAuth(); // ← Agregar isHydrated
   const [form, setForm] = useState({ username: "", password: "" });
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+
+  useEffect(() => {
+    // Solo redirigir después de la hidratación completa
+    if (isHydrated && user) {
+      navigate("/");
+    }
+  }, [isHydrated, user, navigate]); // ← Agregar isHydrated
 
   const handleChange = (e) => {
     setForm({ ...form, [e.target.name]: e.target.value });
@@ -22,13 +29,24 @@ export default function Login() {
     setLoading(true);
     try {
       await login(form);
-      navigate("/");
     } catch (err) {
       setError("Credenciales inválidas. Por favor, verifique sus datos.");
     } finally {
       setLoading(false);
     }
   };
+
+  // Mostrar loading durante la hidratación
+  if (!isHydrated || authLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-gray-100">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Cargando...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-gray-100 p-4">
