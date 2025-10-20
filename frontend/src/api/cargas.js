@@ -162,3 +162,31 @@ export function manejarErrorPermisos(error) {
   }
   return error.message || 'Error desconocido';
 }
+
+// En cargas.js, agregar esta función si no existe
+export function parseServerErrors(error) {
+  if (!error.response?.data) {
+    return { general: error.message || 'Error desconocido' };
+  }
+  
+  const serverData = error.response.data;
+  const errors = {};
+  
+  // Manejar errores de campo específicos
+  if (typeof serverData === 'object') {
+    Object.keys(serverData).forEach(key => {
+      if (Array.isArray(serverData[key])) {
+        errors[key] = serverData[key][0];
+      } else if (typeof serverData[key] === 'string') {
+        errors[key] = serverData[key];
+      }
+    });
+  }
+  
+  // Si no hay errores de campo específicos, usar error general
+  if (Object.keys(errors).length === 0) {
+    errors.general = serverData.detail || 'Error del servidor';
+  }
+  
+  return errors;
+}

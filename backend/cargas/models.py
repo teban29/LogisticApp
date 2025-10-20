@@ -50,6 +50,12 @@ class Carga(models.Model):
     class Meta:
         ordering = ['-created_at']
         verbose_name_plural = 'Cargas'
+        constraints = [
+            models.UniqueConstraint(
+                fields=['cliente', 'proveedor', 'remision'],
+                name='unique_carga_cliente_proveedor_remision'
+                )
+        ]
         
     def __str__(self):
         return f"CG{self.id} = {self.cliente.nombre} {self.remision}"

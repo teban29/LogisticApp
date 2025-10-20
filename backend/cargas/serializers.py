@@ -85,6 +85,23 @@ class CargaSerializer(serializers.ModelSerializer):
             if not self.instance and attrs.get('cliente') != request.user.cliente:
                 raise serializers.ValidationError("Solo puede crear cargas para su cliente asignado")
         
+        if not self.instance:
+            cliente = attrs.get('cliente')
+            proveedor = attrs.get('proveedor')
+            remision = attrs.get('remision')
+            
+            if cliente and proveedor and remision:
+                carga_existente = Carga.objects.filter(
+                    cliente=cliente,
+                    proveedor=proveedor,
+                    remision=remision
+                ).exists()
+                
+                if carga_existente:
+                    raise serializers.ValidationError({
+                        'remision': f'Ya existe una carga registrada para el cliente {cliente.nombre} con el proveedor {proveedor.nombre} y remisión {remision}.'
+                    })
+        
         return attrs
 
     @transaction.atomic
