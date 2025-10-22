@@ -40,6 +40,7 @@ export default function CargaFormModal({
   const [loadingOptions, setLoadingOptions] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [fieldErrors, setFieldErrors] = useState({});
   const [hasChanges, setHasChanges] = useState(false);
   const [proveedorSearch, setProveedorSearch] = useState("");
   const [showProveedorDropdown, setShowProveedorDropdown] = useState(false);
@@ -173,6 +174,7 @@ export default function CargaFormModal({
       });
       setItems([{ producto_nombre: "", producto_sku: "", cantidad: 1 }]);
       setError("");
+      setFieldErrors({});
       setProveedoresOptions([]);
       setHasChanges(false);
       setProveedorSearch("");
@@ -261,6 +263,15 @@ export default function CargaFormModal({
 
   const handleChange = (e) => {
     const { name, value, type, checked, files } = e.target;
+
+    // Limpiar error del campo cuando el usuario modifica
+    if (fieldErrors[name]) {
+      setFieldErrors((prev) => ({
+        ...prev,
+        [name]: null,
+      }));
+    }
+
     if (name === "factura") {
       setForm((f) => ({ ...f, facturaFile: files?.[0] || null }));
     } else if (type === "checkbox") {
@@ -280,6 +291,14 @@ export default function CargaFormModal({
     const value = e.target.value;
     setProveedorSearch(value);
     setShowProveedorDropdown(true);
+
+    // Limpiar error de proveedor si existe
+    if (fieldErrors.proveedor) {
+      setFieldErrors((prev) => ({
+        ...prev,
+        proveedor: null,
+      }));
+    }
 
     // Si el campo está vacío, limpiar la selección
     if (!value.trim()) {
@@ -329,9 +348,10 @@ export default function CargaFormModal({
   const handleSubmit = async (e) => {
     e?.preventDefault?.();
     setError("");
+    setFieldErrors({});
     setSaving(true);
 
-    // Validaciones
+    // Validaciones básicas
     if (!form.cliente) {
       setError("Selecciona un cliente");
       setSaving(false);
@@ -380,17 +400,45 @@ export default function CargaFormModal({
       await onSubmit(payload, editing?.id || null);
       onClose();
     } catch (err) {
-      console.error(err);
-      const serverData = err?.response?.data;
-      let message =
-        "Error al guardar la carga. Por favor, verifique los datos.";
-      if (serverData) {
-        if (serverData.detail) message = serverData.detail;
-        else if (typeof serverData === "string") message = serverData;
-        else if (typeof serverData === "object")
-          message = JSON.stringify(serverData);
+      console.error("Error al guardar carga:", err);
+      const serverErrors = err?.response?.data;
+
+      if (serverErrors && typeof serverErrors === "object") {
+        const newFieldErrors = {};
+        let generalError = "";
+
+        // Buscar errores de campo y errores generales
+        Object.keys(serverErrors).forEach((key) => {
+          const errorValue = Array.isArray(serverErrors[key])
+            ? serverErrors[key][0]
+            : serverErrors[key];
+
+          if (key === "non_field_errors" || key === "detail") {
+            generalError = errorValue;
+          } else {
+            newFieldErrors[key] = errorValue;
+          }
+        });
+
+        // Si hay un error general, mostrarlo
+        if (generalError) {
+          setError(generalError);
+        }
+
+        // Si hay errores de campo, mostrarlos
+        if (Object.keys(newFieldErrors).length > 0) {
+          setFieldErrors(newFieldErrors);
+        }
+        
+        // Si no se identificó ningún error específico, mostrar un mensaje genérico
+        if (!generalError && Object.keys(newFieldErrors).length === 0) {
+          setError("Ocurrió un error inesperado. Por favor, intente de nuevo.");
+        }
+
+      } else {
+        // Fallback para errores no estructurados
+        setError("Error al guardar la carga. Verifique su conexión o los datos ingresados.");
       }
-      setError(message);
     } finally {
       setSaving(false);
     }
@@ -414,7 +462,7 @@ export default function CargaFormModal({
       <form onSubmit={handleSubmit} className="space-y-6">
         {/* Información básica */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {/* Cliente */}
+          {/* Cliente - Con manejo de error específico */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
               Cliente <span className="text-red-500">*</span>
@@ -427,7 +475,9 @@ export default function CargaFormModal({
                 name="cliente"
                 value={form.cliente}
                 onChange={handleChange}
-                className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-colors disabled:bg-gray-50 disabled:text-gray-500"
+                className={`w-full pl-10 pr-4 py-2.5 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-colors disabled:bg-gray-50 disabled:text-gray-500 ${
+                  fieldErrors.cliente ? 'border-red-500 bg-red-50' : 'border-gray-300'
+                }`}
                 required
                 disabled={loadingOptions}>
                 <option value="">Selecciona un cliente</option>
@@ -438,9 +488,15 @@ export default function CargaFormModal({
                 ))}
               </select>
             </div>
+            {fieldErrors.cliente && (
+              <p className="mt-1 text-sm text-red-600 flex items-center gap-1">
+                <RiCloseLine className="flex-shrink-0" />
+                {fieldErrors.cliente}
+              </p>
+            )}
           </div>
 
-          {/* Proveedor */}
+          {/* Proveedor - Con manejo de error específico */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
               Proveedor <span className="text-red-500">*</span>
@@ -455,7 +511,9 @@ export default function CargaFormModal({
                 onChange={handleProveedorSearchChange}
                 onFocus={handleProveedorFocus}
                 onBlur={handleProveedorBlur}
-                className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-colors disabled:bg-gray-50 disabled:text-gray-500"
+                className={`w-full pl-10 pr-4 py-2.5 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-colors disabled:bg-gray-50 disabled:text-gray-500 ${
+                  fieldErrors.proveedor ? 'border-red-500 bg-red-50' : 'border-gray-300'
+                }`}
                 placeholder={
                   form.cliente
                     ? "Buscar proveedor..."
@@ -465,7 +523,7 @@ export default function CargaFormModal({
                 required
               />
 
-              {/* Dropdown de proveedores */}
+              {/* Dropdown de proveedores (mantener igual) */}
               {showProveedorDropdown &&
                 form.cliente &&
                 filteredProveedores.length > 0 && (
@@ -489,7 +547,7 @@ export default function CargaFormModal({
                   </div>
                 )}
 
-              {/* Mensaje cuando no hay resultados */}
+              {/* Mensaje cuando no hay resultados (mantener igual) */}
               {showProveedorDropdown &&
                 form.cliente &&
                 proveedorSearch &&
@@ -500,6 +558,12 @@ export default function CargaFormModal({
                   </div>
                 )}
             </div>
+            {fieldErrors.proveedor && (
+              <p className="mt-1 text-sm text-red-600 flex items-center gap-1">
+                <RiCloseLine className="flex-shrink-0" />
+                {fieldErrors.proveedor}
+              </p>
+            )}
             {!form.cliente && (
               <p className="text-xs text-gray-500 mt-1 flex items-center gap-1">
                 <RiInformationLine className="flex-shrink-0" />
@@ -516,7 +580,7 @@ export default function CargaFormModal({
               )}
           </div>
 
-          {/* Remisión */}
+          {/* Remisión - Con manejo de error específico */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
               Remisión <span className="text-red-500">*</span>
@@ -529,11 +593,19 @@ export default function CargaFormModal({
                 name="remision"
                 value={form.remision}
                 onChange={handleChange}
-                className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-colors"
+                className={`w-full pl-10 pr-4 py-2.5 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-colors ${
+                  fieldErrors.remision ? 'border-red-500 bg-red-50' : 'border-gray-300'
+                }`}
                 required
                 placeholder="Número de remisión"
               />
             </div>
+            {fieldErrors.remision && (
+              <p className="mt-1 text-sm text-red-600 flex items-center gap-1">
+                <RiCloseLine className="flex-shrink-0" />
+                {fieldErrors.remision}
+              </p>
+            )}
           </div>
 
           {/* Factura */}
