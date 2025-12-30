@@ -26,6 +26,7 @@ class EnvioItem(models.Model):
     
     def save(self, *args, **kwargs):
         super().save(*args, **kwargs)
+        
         if hasattr(self, 'envio'):
             self.envio.actualizar_valor_total()
     
@@ -91,8 +92,14 @@ class Envio(models.Model):
     
     def actualizar_valor_total(self):
         """Actualiza el valor total sumando todos los items"""
-        total = sum(item.valor_unitario for item in self.items.all())
-        self.valor_total = total
+        # OPCIÓN 2: Iterar y sumar
+        items_list = list(self.items.all())
+        calculated_total = sum(float(item.valor_unitario) for item in items_list)
+        
+        # Usar el valor calculado
+        self.valor_total = calculated_total
+        
+        # Guardar solo el campo valor_total
         self.save(update_fields=['valor_total'])
         
     def porcentaje_verificacion(self):
@@ -128,10 +135,13 @@ def actualizar_valor_total_despues_guardar(sender, instance, **kwargs):
     if kwargs.get('created', False) or 'valor_unitario' in instance.get_dirty_fields():
         instance.envio.actualizar_valor_total()
 
-@receiver(post_delete, sender=EnvioItem)
-def actualizar_valor_total_despues_eliminar(sender, instance, **kwargs):
-    """Actualiza el valor total después de eliminar un item"""
-    instance.envio.actualizar_valor_total()
+# backend/envios/models.py - Señal post_save
+
+@receiver(post_save, sender=EnvioItem)
+def actualizar_valor_total_despues_guardar(sender, instance, **kwargs):
+    """Actualiza el valor total después de guardar un item"""
+    if kwargs.get('created', False) or 'valor_unitario' in instance.get_dirty_fields():
+        instance.envio.actualizar_valor_total()
 
 # Método auxiliar para detectar campos modificados
 def get_dirty_fields(self):

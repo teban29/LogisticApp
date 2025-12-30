@@ -190,3 +190,38 @@ export function parseServerErrors(error) {
   
   return errors;
 }
+
+// En src/api/cargas.js, agrega esta función:
+
+export async function descargarConsolidadoPDF(cargaId) {
+  try {
+    const response = await api.get(`/api/cargas/${cargaId}/consolidado_pdf/`, {
+      responseType: "blob",
+    });
+    
+    // Verificar si la respuesta es un blob válido (PDF)
+    if (response.data instanceof Blob && response.data.type === 'application/pdf') {
+      return response.data;
+    } else {
+      // Si no es un PDF, podría ser un error JSON
+      const errorText = await response.data.text();
+      try {
+        const errorData = JSON.parse(errorText);
+        throw new Error(errorData.detail || errorData.error || 'Error al generar consolidado PDF');
+      } catch {
+        throw new Error('Respuesta inválida del servidor');
+      }
+    }
+  } catch (error) {
+    if (error.response?.status === 403) {
+      throw new Error('No tiene permisos para descargar el consolidado de esta carga');
+    }
+    if (error.response?.status === 404) {
+      throw new Error('Carga no encontrada');
+    }
+    if (error.response?.status === 500) {
+      throw new Error('Error del servidor al generar el PDF');
+    }
+    throw error;
+  }
+}

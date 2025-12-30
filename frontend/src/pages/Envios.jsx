@@ -168,15 +168,34 @@ export default function Envios() {
   const handleSubmit = async (payload, editingId = null) => {
     try {
       if (editingId) {
+        // Forzar un pequeño delay antes de actualizar
+        await new Promise((resolve) => setTimeout(resolve, 100));
+
         await actualizarEnvio(editingId, payload);
+        setOpenForm(false);
+
+        // Esperar un momento y luego forzar refresh completo
+        setTimeout(async () => {
+          await fetchData();
+        }, 800);
       } else {
         await crearEnvio(payload);
+        setOpenForm(false);
+        await fetchData();
       }
-      setOpenForm(false);
-      await fetchData(); // Recargar datos después de guardar
     } catch (err) {
-      console.error("Error saving envio:", err);
-      throw err; // Re-lanzar el error para que el modal lo maneje
+      console.error("Error al guardar el envío:", err);
+
+      // Mostrar error completo
+      if (err.response) {
+        console.error("Detalles del error:", {
+          status: err.response.status,
+          data: err.response.data,
+          headers: err.response.headers
+        });
+      }
+
+      throw err;
     }
   };
 
@@ -242,8 +261,8 @@ export default function Envios() {
 
           {isAdmin && (
             <button
-            onClick={() => setOpenEscaneoMasivo(true)}
-            className="flex items-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors">
+              onClick={() => setOpenEscaneoMasivo(true)}
+              className="flex items-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors">
               <RiBarcodeLine className="text-lg" />
               <span>Escaneo masivo</span>
             </button>

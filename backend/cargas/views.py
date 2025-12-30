@@ -1,3 +1,4 @@
+from fileinput import filename
 from rest_framework import viewsets, decorators, response, status
 from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 from django.db.models import Prefetch, Count
@@ -24,6 +25,9 @@ from rest_framework import status, decorators
 from django.db.models import Q
 from django.utils import timezone
 from datetime import timedelta, datetime
+
+from .pdf_utils import generate_consolidado_pdf
+from django.http import HttpResponse
 
 
 class ProductoViewSet(viewsets.ModelViewSet):
@@ -167,6 +171,35 @@ class CargaViewSet(viewsets.ModelViewSet):
         
         return response
     
+    @decorators.action(detail=True, methods=['get'], permission_classes=[IsAdminOrOperador])
+    def consolidado_pdf(self, request, pk=None):
+        """
+        Genera y descarga el PDF de Consolidado de Mercancía
+        GET /api/cargas/{id}/consolidado_pdf/
+        """
+        carga = self.get_object()
+        
+        try:
+            # Generar el PDF
+            pdf_buffer = generate_consolidado_pdf(carga)
+            
+            # Crear la respuesta HTTP
+            response = HttpResponse(pdf_buffer, content_type='application/pdf')
+            
+            # Configurar el nombre del archivo
+            # Reemplazar caracteres problemáticos en la remisión
+            safe_remision = carga.remision.replace('/', '_').replace('\\', '_')
+            filename = f"consolidado_carga_{carga.id}_{safe_remision}.pdf"
+            response['Content-Disposition'] = f'attachment; filename="{filename}"'
+            
+            return response
+            
+        except Exception as e:
+            print(f"Error generando consolidado PDF: {str(e)}")
+            return Response(
+                {'error': 'Error al generar el PDF del consolidado'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
     
     @decorators.action(detail=True, methods=['post'], permission_classes=[IsAdminRole])
     def generar_unidades(self, request, pk=None):
@@ -240,8 +273,8 @@ class CargaViewSet(viewsets.ModelViewSet):
         c = canvas.Canvas(buf, pagesize=page_size)
 
         # Medidas del barcode requeridas
-        target_bw = 85*mm
-        target_bh = 44*mm
+        target_bw = 50*mm
+        target_bh = 20*mm
 
         for u in unidades:
             producto = u.carga_item.producto
@@ -257,7 +290,7 @@ class CargaViewSet(viewsets.ModelViewSet):
             s = None
 
             bx = (label_w - target_bw) / 2.0
-            by = label_h - margin - target_bh - (4*mm)
+            by = label_h - margin - target_bh - (8*mm)  # Ajustado para mejor espaciado
 
             c.saveState()
             c.translate(bx, by)

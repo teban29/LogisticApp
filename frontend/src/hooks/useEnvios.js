@@ -13,7 +13,7 @@ import {
   obtenerEstadoVerificacion,
   obtenerItemsPendientes,
   forzarCompletarEntrega,
-  escaneoMasivo
+  escaneoMasivo,
 } from "../api/envios";
 
 export const useEnvios = () => {
@@ -40,7 +40,14 @@ export const useEnvios = () => {
     setLoading(true);
     setError(null);
     try {
-      const data = await listEnvios(params);
+      // Agregar timestamp para evitar caché
+      const timestamp = new Date().getTime();
+      const paramsWithCacheBust = {
+        ...params,
+        _t: timestamp,
+      };
+
+      const data = await listEnvios(paramsWithCacheBust);
       const enviosData = data.results || data;
       setEnvios(enviosData);
       setCount(data.count || enviosData.length);
@@ -57,8 +64,13 @@ export const useEnvios = () => {
     setError(null);
     try {
       const data = await createEnvio(payload);
-      setEnvios((prev) => [...prev, data]);
-      setCount((prev) => prev + 1);
+      // Después de crear, hacer refresh completo
+      const refreshedData = await listEnvios();
+      const enviosRefreshed = refreshedData.results || refreshedData;
+
+      setEnvios(enviosRefreshed);
+      setCount(refreshedData.count || enviosRefreshed.length);
+
       return data;
     } catch (err) {
       return handleError(err);
@@ -71,12 +83,26 @@ export const useEnvios = () => {
     setLoading(true);
     setError(null);
     try {
-      const data = await updateEnvioAPI(id, payload);
+      // 1. Actualizar el envío
+      await updateEnvioAPI(id, payload);
+
+      // 2. IMPORTANTE: Hacer una petición FRESCA para obtener el envío actualizado
+      // No confiar en la respuesta del update, hacer un GET aparte
+      await new Promise((resolve) => setTimeout(resolve, 500));
+
+      // 3. Obtener el envío actualizado individualmente
+      const envioActualizado = await getEnvioAPI(id);
+
+      // 4. Actualizar la lista local
       setEnvios((prev) =>
-        prev.map((envio) => (envio.id === id ? data : envio))
+        prev.map((envio) =>
+          envio.id === id ? { ...envio, ...envioActualizado } : envio
+        )
       );
-      return data;
+
+      return envioActualizado;
     } catch (err) {
+      console.error("Error en actualizarEnvio:", err);
       return handleError(err);
     } finally {
       setLoading(false);
@@ -88,8 +114,13 @@ export const useEnvios = () => {
     setError(null);
     try {
       await deleteEnvio(id);
-      setEnvios((prev) => prev.filter((envio) => envio.id !== id));
-      setCount((prev) => prev - 1);
+      // Hacer refresh completo después de eliminar
+      const refreshedData = await listEnvios();
+      const enviosRefreshed = refreshedData.results || refreshedData;
+
+      setEnvios(enviosRefreshed);
+      setCount(refreshedData.count || enviosRefreshed.length);
+
       return { success: true };
     } catch (err) {
       return handleError(err);
@@ -103,9 +134,13 @@ export const useEnvios = () => {
     setError(null);
     try {
       const data = await agregarItemEnvio(envioId, payload);
-      setEnvios((prev) =>
-        prev.map((envio) => (envio.id === envioId ? data : envio))
-      );
+      // Hacer refresh completo
+      const refreshedData = await listEnvios();
+      const enviosRefreshed = refreshedData.results || refreshedData;
+
+      setEnvios(enviosRefreshed);
+      setCount(refreshedData.count || enviosRefreshed.length);
+
       return data;
     } catch (err) {
       return handleError(err);
@@ -119,9 +154,13 @@ export const useEnvios = () => {
     setError(null);
     try {
       const data = await removerItemEnvio(envioId, itemId);
-      setEnvios((prev) =>
-        prev.map((envio) => (envio.id === envioId ? data : envio))
-      );
+      // Hacer refresh completo
+      const refreshedData = await listEnvios();
+      const enviosRefreshed = refreshedData.results || refreshedData;
+
+      setEnvios(enviosRefreshed);
+      setCount(refreshedData.count || enviosRefreshed.length);
+
       return data;
     } catch (err) {
       return handleError(err);
@@ -148,9 +187,13 @@ export const useEnvios = () => {
     setError(null);
     try {
       const data = await cambiarEstadoEnvio(envioId, estado);
-      setEnvios((prev) =>
-        prev.map((envio) => (envio.id === envioId ? data : envio))
-      );
+      // Hacer refresh completo
+      const refreshedData = await listEnvios();
+      const enviosRefreshed = refreshedData.results || refreshedData;
+
+      setEnvios(enviosRefreshed);
+      setCount(refreshedData.count || enviosRefreshed.length);
+
       return data;
     } catch (err) {
       return handleError(err);
@@ -172,45 +215,52 @@ export const useEnvios = () => {
     }
   }, []);
 
-  const procesarEscaneoMasivo = useCallback(async (payload) => {
-    setLoading(true);
-    setError(null);
-    try {
-      const data = await escaneoMasivo(payload);
-      await fetchEnvios();
-      return data;
-    } catch (err) {
-      return handleError(err);
-    } finally {
-      setLoading(false);
-    }
-  }, [fetchEnvios]);
+  const procesarEscaneoMasivo = useCallback(
+    async (payload) => {
+      setLoading(true);
+      setError(null);
+      try {
+        const data = await escaneoMasivo(payload);
+        // Hacer refresh completo
+        await fetchEnvios();
+        return data;
+      } catch (err) {
+        return handleError(err);
+      } finally {
+        setLoading(false);
+      }
+    },
+    [fetchEnvios]
+  );
 
   // Nuevas funciones para verificación de entrega
-  const escanearItemVerificacion = useCallback(async (envioId, codigoBarra, escaneadoPor = '') => {
-    setLoading(true);
-    setError(null);
-    try {
-      const data = await escanearItemEntrega(envioId, codigoBarra, escaneadoPor);
-      
-      // Si la entrega se completó, actualizamos el estado del envío
-      if (data.completado) {
-        setEnvios((prev) =>
-          prev.map((envio) =>
-            envio.id === envioId
-              ? { ...envio, estado: 'entregado', fecha_entrega_verificada: new Date().toISOString() }
-              : envio
-          )
+  const escanearItemVerificacion = useCallback(
+    async (envioId, codigoBarra, escaneadoPor = "") => {
+      setLoading(true);
+      setError(null);
+      try {
+        const data = await escanearItemEntrega(
+          envioId,
+          codigoBarra,
+          escaneadoPor
         );
+
+        // Hacer refresh completo
+        const refreshedData = await listEnvios();
+        const enviosRefreshed = refreshedData.results || refreshedData;
+
+        setEnvios(enviosRefreshed);
+        setCount(refreshedData.count || enviosRefreshed.length);
+
+        return data;
+      } catch (err) {
+        return handleError(err);
+      } finally {
+        setLoading(false);
       }
-      
-      return data;
-    } catch (err) {
-      return handleError(err);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+    },
+    []
+  );
 
   const obtenerVerificacionEstado = useCallback(async (envioId) => {
     setLoading(true);
@@ -243,16 +293,14 @@ export const useEnvios = () => {
     setError(null);
     try {
       const data = await forzarCompletarEntrega(envioId);
-      
-      // Actualizar el estado del envío en la lista local
-      setEnvios((prev) =>
-        prev.map((envio) =>
-          envio.id === envioId
-            ? { ...envio, estado: 'entregado', fecha_entrega_verificada: new Date().toISOString() }
-            : envio
-        )
-      );
-      
+
+      // Hacer refresh completo
+      const refreshedData = await listEnvios();
+      const enviosRefreshed = refreshedData.results || refreshedData;
+
+      setEnvios(enviosRefreshed);
+      setCount(refreshedData.count || enviosRefreshed.length);
+
       return data;
     } catch (err) {
       return handleError(err);

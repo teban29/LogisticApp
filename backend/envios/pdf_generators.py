@@ -38,6 +38,7 @@ def generate_acta_entrega_pdf(envio):
                 grupo['producto_nombre'], 
                 str(grupo['cantidad']), 
                 grupo['remision'], 
+                grupo['remesa'],
                 grupo['proveedor_nombre']
             ])
         
@@ -94,6 +95,7 @@ def obtener_items_agrupados(envio):
     grupos_dict = defaultdict(lambda: {
         'producto_nombre': '',
         'remision': '',
+        'remesa': '',
         'proveedor_nombre': '',
         'cantidad': 0,
         'items_ids': []
@@ -109,6 +111,7 @@ def obtener_items_agrupados(envio):
         
         producto_nombre = getattr(producto, 'nombre', 'Producto') if producto else 'Producto'
         remision = getattr(carga, 'remision', 'N/A')
+        remesa = getattr(carga, 'id', 'N/A')
         proveedor_nombre = getattr(proveedor, 'nombre', 'N/A') if proveedor else 'N/A'
         
         # Clave única para agrupar
@@ -116,6 +119,7 @@ def obtener_items_agrupados(envio):
         
         grupos_dict[clave]['producto_nombre'] = producto_nombre
         grupos_dict[clave]['remision'] = remision
+        grupos_dict[clave]['remesa'] = remesa
         grupos_dict[clave]['proveedor_nombre'] = proveedor_nombre
         grupos_dict[clave]['cantidad'] += 1
         grupos_dict[clave]['items_ids'].append(item.id)
@@ -170,10 +174,11 @@ def draw_table(c, data, width, height, margin_horizontal, envio, logo_path):
     # Configuración de la tabla con 4 columnas
     table_width = width - (2 * margin_horizontal)
     col_widths = [
-        table_width * 0.40,  # Producto (más ancho)
-        table_width * 0.15,  # Cantidad (nueva columna)
-        table_width * 0.20,  # Remisión  
-        table_width * 0.25,  # Proveedor
+        table_width * 0.30,  # Producto (más ancho)
+        table_width * 0.10,  # Cantidad (nueva columna)
+        table_width * 0.15,  # Remisión  
+        table_width * 0.15,  # Remesa  
+        table_width * 0.30,  # Proveedor
     ]
     
     # Posición inicial de la tabla con margen superior
@@ -181,7 +186,7 @@ def draw_table(c, data, width, height, margin_horizontal, envio, logo_path):
     cell_height = 25
     
     # Encabezados de la tabla
-    headers = ["Producto", "Cantidad", "Remisión", "Proveedor"]
+    headers = ["Producto", "Cantidad", "Remisión", "Remesa" , "Proveedor"]
     
     # Calcular posición X para centrar la tabla
     table_x_start = (width - table_width) / 2
@@ -191,8 +196,8 @@ def draw_table(c, data, width, height, margin_horizontal, envio, logo_path):
         table_x_start + col_widths[0],
         table_x_start + col_widths[0] + col_widths[1],
         table_x_start + col_widths[0] + col_widths[1] + col_widths[2],
+        table_x_start + col_widths[0] + col_widths[1] + col_widths[2] + col_widths[3],
     ]
-    
     current_y = table_start_y
     
     # Dibujar encabezado de la tabla
@@ -260,7 +265,7 @@ def generate_simple_pdf(envio):
     
     # Encabezado
     c.setFont("Helvetica-Bold", 16)
-    c.drawString(margin, height - 50, "ACTA DE ENTREGA")
+    c.drawString(margin, height - 50, "MANIFIESTO DE ENVIO")
     c.setFont("Helvetica", 12)
     c.drawString(margin, height - 70, f"Guía: {envio.numero_guia}")
     c.drawString(margin, height - 90, f"Cliente: {envio.cliente.nombre}")
@@ -325,6 +330,7 @@ def generate_cuenta_cobro_pdf(envio):
                 grupo['producto_nombre'], 
                 str(grupo['cantidad']), 
                 grupo['remision'], 
+                grupo['remesa'],
                 grupo['proveedor_nombre'], 
                 valor_total_str
             ])
@@ -382,6 +388,7 @@ def obtener_items_agrupados_con_valores(envio):
     grupos_dict = defaultdict(lambda: {
         'producto_nombre': '',
         'remision': '',
+        'remesa': '',
         'proveedor_nombre': '',
         'cantidad': 0,
         'valor_unitario': 0,
@@ -398,14 +405,17 @@ def obtener_items_agrupados_con_valores(envio):
         
         producto_nombre = getattr(producto, 'nombre', 'Producto') if producto else 'Producto'
         remision = getattr(carga, 'remision', 'N/A')
+        remesa = getattr(carga, 'id', 'N/A')
         proveedor_nombre = getattr(proveedor, 'nombre', 'N/A') if proveedor else 'N/A'
         valor_unitario = getattr(item, 'valor_unitario', 0)
         
         # Clave única para agrupar
-        clave = (producto_nombre, remision, proveedor_nombre)
+        clave = (producto_nombre, remision, remesa, proveedor_nombre)
         
         grupos_dict[clave]['producto_nombre'] = producto_nombre
         grupos_dict[clave]['remision'] = remision
+        grupos_dict[clave]['remesa'] = remesa
+        
         grupos_dict[clave]['proveedor_nombre'] = proveedor_nombre
         grupos_dict[clave]['cantidad'] += 1
         grupos_dict[clave]['valor_unitario'] = valor_unitario  # Usamos el último valor unitario
@@ -456,17 +466,18 @@ def draw_billing_table(c, data, width, height, margin_horizontal, envio, logo_pa
     
     table_width = width - (2 * margin_horizontal)
     col_widths = [
-        table_width * 0.30,  # Producto
-        table_width * 0.12,  # Cantidad
-        table_width * 0.18,  # Remisión  
-        table_width * 0.22,  # Proveedor
-        table_width * 0.18,  # Valor Total
+        table_width * 0.25,  # Producto
+        table_width * 0.08,  # Cantidad
+        table_width * 0.12,  # Remisión  
+        table_width * 0.10,  # Remesa
+        table_width * 0.20,  # Proveedor
+        table_width * 0.15,  # Valor Total
     ]
     
     table_start_y = height - 200
     cell_height = 25
     
-    headers = ["Producto", "Cantidad", "Remisión", "Proveedor", "Valor Total"]
+    headers = ["Producto", "Cantidad", "Remisión", "Remesa",  "Proveedor", "Valor Total"]
     
     table_x_start = (width - table_width) / 2
     
@@ -476,6 +487,7 @@ def draw_billing_table(c, data, width, height, margin_horizontal, envio, logo_pa
         table_x_start + col_widths[0] + col_widths[1],
         table_x_start + col_widths[0] + col_widths[1] + col_widths[2],
         table_x_start + col_widths[0] + col_widths[1] + col_widths[2] + col_widths[3],
+        table_x_start + col_widths[0] + col_widths[1] + col_widths[2] + col_widths[3] + col_widths[4],
     ]
     
     current_y = table_start_y

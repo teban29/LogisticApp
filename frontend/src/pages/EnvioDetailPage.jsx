@@ -146,7 +146,7 @@ export default function EnvioDetailPage() {
   const handlePrint = async () => {
     try {
       setLoadingEnvio(true);
-      console.log("Iniciando generación de acta para envío:", id);
+      console.log("Iniciando generación de Manifiesto:", id);
 
       // Asegúrate de que la URL sea correcta
       const url = `/api/envios/${id}/acta-entrega/`;
@@ -177,14 +177,14 @@ export default function EnvioDetailPage() {
 
       setLoadingEnvio(false);
     } catch (err) {
-      console.error("Error completo al generar acta:", err);
+      console.error("Error completo al generar Manifiesto:", err);
       console.error("Response data:", err.response?.data);
       console.error("Status:", err.response?.status);
       console.error("Headers:", err.response?.headers);
 
       setLoadingEnvio(false);
       alert(
-        "Error al generar el acta de entrega. Verifica la consola para más detalles."
+        "Error al generar el Manifiesto. Verifica la consola para más detalles."
       );
     }
   };
@@ -322,14 +322,14 @@ export default function EnvioDetailPage() {
                 <button
                   onClick={handlePrint}
                   disabled={loadingEnvio}
-                  title="Generar e imprimir acta de entrega del envío"
+                  title="Generar e imprimir manifiesto"
                   className="flex items-center gap-2 px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-300 disabled:opacity-50 transition-colors">
                   {loadingEnvio ? (
                     <RiLoader4Line className="text-lg animate-spin" />
                   ) : (
                     <RiPrinterLine className="text-lg" />
                   )}
-                  <span>{loadingEnvio ? "Generando..." : "Imprimir Acta"}</span>
+                  <span>{loadingEnvio ? "Generando..." : "Imprimir Manifiesto"}</span>
                 </button>
               )}
 
@@ -646,15 +646,15 @@ export default function EnvioDetailPage() {
                   <button
                     onClick={handlePrint}
                     disabled={loadingEnvio}
-                    title="Generar e imprimir acta de entrega del envío"
+                    title="Generar e imprimir Manifiesto del envío"
                     className="w-full flex items-center gap-2 px-4 py-3 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-300 disabled:opacity-50 transition-colors">
                     {loadingEnvio ? (
                       <RiLoader4Line className="text-lg animate-spin" />
                     ) : (
                       <RiPrinterLine className="text-lg" />
                     )}
-                    <span>
-                      {loadingEnvio ? "Generando..." : "Imprimir Acta"}
+                    <span>  
+                      {loadingEnvio ? "Generando..." : "Imprimir Manifiesto"}
                     </span>
                   </button>
 

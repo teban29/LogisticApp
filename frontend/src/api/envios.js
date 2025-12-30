@@ -16,8 +16,14 @@ export const createEnvio = async (payload) => {
 };
 
 export const updateEnvio = async (id, payload) => {
-  const response = await api.patch(`/api/envios/${id}/`, payload);
-  return response.data;
+  try {
+    // Probar con PUT primero (actualización completa)
+    const response = await api.put(`/api/envios/${id}/`, payload);
+    return response.data;
+  } catch (error) {
+    console.error("Error en actualización de envío:", error.response?.data || error.message);
+    throw error;
+  }
 };
 
 export const deleteEnvio = async (id) => {
@@ -63,7 +69,6 @@ export const validarUnidadParaEnvio = async (codigoBarra, clienteId) => {
       );
       const unidad = response.data;
 
-      console.log("DEBUG - Estructura completa de unidad:", unidad);
 
       // Verificar que pertenece al cliente
       const unidadClienteId = unidad.cliente_id;
@@ -99,11 +104,6 @@ export const validarUnidadParaEnvio = async (codigoBarra, clienteId) => {
         remision = unidad.remision; // ← Remisión directa del serializer
       }
 
-      console.log("DEBUG - Información extraída:", {
-        productoNombre,
-        remision,
-        precioReferencia
-      });
 
       return {
         valida: true,
@@ -131,7 +131,7 @@ export const validarUnidadParaEnvio = async (codigoBarra, clienteId) => {
       return await validarConEndpointGeneral(codigoBarra, clienteId);
     }
   } catch (err) {
-    console.error("Error en validación de unidad:", err);
+    console.error("Error en validación de unidad:", err.message);
     return { valida: false, error: "Error al validar la unidad" };
   }
 };
@@ -145,7 +145,6 @@ export const obtenerInfoProductoPorCodigo = async (codigoBarra) => {
       );
       const unidad = response.data;
 
-      console.log("DEBUG - Obteniendo info producto:", unidad);
 
       // Extraer el nombre del producto sin validaciones
       let productoNombre = "Producto";
@@ -172,7 +171,7 @@ export const obtenerInfoProductoPorCodigo = async (codigoBarra) => {
       return await obtenerInfoProductoGeneral(codigoBarra);
     }
   } catch (err) {
-    console.error("Error al obtener info del producto:", err);
+    console.error("Error al obtener info del producto:", err.message);
     return {
       encontrado: false,
       producto_nombre: "Producto",
@@ -214,7 +213,7 @@ const obtenerInfoProductoGeneral = async (codigoBarra) => {
       codigo_barra: codigoBarra,
     };
   } catch (err) {
-    console.error("Error en consulta general:", err);
+    console.error("Error en consulta general:", err.message);
     return {
       encontrado: false,
       producto_nombre: "Producto",
@@ -283,7 +282,7 @@ const validarConEndpointGeneral = async (codigoBarra, clienteId) => {
       },
     };
   } catch (err) {
-    console.error("Error en validación general:", err);
+    console.error("Error en validación general:", err.message);
     throw err;
   }
 };

@@ -630,7 +630,7 @@ export default function CargaFormModal({
           {/* Observaciones */}
           <div className="md:col-span-2">
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Observaciones
+              Forma de pago
             </label>
             <textarea
               name="observaciones"

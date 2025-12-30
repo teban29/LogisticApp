@@ -327,7 +327,7 @@ export default function CargaDetailPage() {
             <div className="mt-6 pt-6 border-t">
               <h3 className="font-medium text-gray-900 mb-3 flex items-center gap-2">
                 <RiFileTextLine />
-                Observaciones
+                Forma de pago
               </h3>
               <div className="p-4 bg-gray-50 rounded-lg">
                 <p className="text-gray-700">{carga.observaciones}</p>
