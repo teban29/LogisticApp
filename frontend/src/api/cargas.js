@@ -40,6 +40,8 @@ export async function createCarga(payload) {
     "auto_generar_unidades",
     payload.auto_generar_unidades ? "true" : "false"
   );
+  form.append("origen", payload.origen);
+  form.append("destino", payload.destino);
 
   if (payload.items_data && payload.items_data.length > 0) {
     form.append("items_data", JSON.stringify(payload.items_data));
@@ -65,6 +67,8 @@ export async function updateCarga(id, payload) {
     );
   if (payload.items_data) form.append("items_data", JSON.stringify(payload.items_data));
   if (payload.facturaFile) form.append("factura", payload.facturaFile);
+  if (payload.origen) form.append("origen", payload.origen);
+  if (payload.destino) form.append("destino", payload.destino);
 
   const res = await api.patch(`/api/cargas/${id}/`, form);
   return res.data;

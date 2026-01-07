@@ -29,6 +29,8 @@ export default function CargaFormModal({
     observaciones: "",
     facturaFile: null,
     auto_generar_unidades: true,
+    origen: "",
+    destino: "",
   });
 
   const [items, setItems] = useState([
@@ -171,6 +173,8 @@ export default function CargaFormModal({
         observaciones: "",
         facturaFile: null,
         auto_generar_unidades: true,
+        origen: "",
+        destino: "",
       });
       setItems([{ producto_nombre: "", producto_sku: "", cantidad: 1 }]);
       setError("");
@@ -193,6 +197,8 @@ export default function CargaFormModal({
         observaciones: editing.observaciones || "",
         facturaFile: null,
         auto_generar_unidades: true,
+        origen: editing.origen || "",
+        destino: editing.destino || "",
       });
       setItems(
         (editing.items || []).map((it) => ({
@@ -214,6 +220,8 @@ export default function CargaFormModal({
         observaciones: "",
         facturaFile: null,
         auto_generar_unidades: true,
+        origen: "",
+        destino: "",
       });
       setItems([{ producto_nombre: "", producto_sku: "", cantidad: 1 }]);
       setProveedorSearch("");
@@ -231,6 +239,8 @@ export default function CargaFormModal({
             observaciones: editing.observaciones || "",
             facturaFile: null,
             auto_generar_unidades: true,
+            origen: editing.origen || "",
+            destino: editing.destino || "",
           }
         : {
             cliente: "",
@@ -239,6 +249,8 @@ export default function CargaFormModal({
             observaciones: "",
             facturaFile: null,
             auto_generar_unidades: true,
+            origen: "",
+            destino: "",
           };
 
       const initialItems = editing
@@ -392,6 +404,8 @@ export default function CargaFormModal({
         cantidad: Number(it.cantidad),
       })),
       facturaFile: form.facturaFile,
+      origen: form.origen,
+      destino: form.destino,
     };
 
     console.log("Payload para editar:", JSON.stringify(payload, null, 2));
@@ -625,6 +639,34 @@ export default function CargaFormModal({
                 className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-colors file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
               />
             </div>
+          </div>
+
+          {/* Origen */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Origen
+            </label>
+            <input
+              type="text"
+              name="origen"
+              value={form.origen}
+              onChange={handleChange}
+              className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-colors"
+            />
+          </div>
+
+          {/* Destino */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Destino
+            </label>
+            <input
+              type="text"
+              name="destino"
+              value={form.destino}
+              onChange={handleChange}
+              className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-colors"
+            />
           </div>
 
           {/* Observaciones */}

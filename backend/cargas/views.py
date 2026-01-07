@@ -304,7 +304,7 @@ class CargaViewSet(viewsets.ModelViewSet):
             info_lines = [
                 Paragraph(f"<b>CLIENTE:</b> {cliente.nombre[:24]}", base),
                 Paragraph(f"<b>PRODUCTO:</b> {producto.nombre[:24]}", base),
-                Paragraph(f"<b>REM:</b> {u.carga_item.carga.remision}", base),
+                Paragraph(f"<b>REM:</b> {u.carga_item.carga.remision} <b>DEST:</b> {u.carga_item.carga.destino}", base),
             ]
 
             y = 8*mm

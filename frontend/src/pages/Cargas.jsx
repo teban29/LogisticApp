@@ -27,6 +27,8 @@ import {
   RiBox3Line,
   RiUserLine,
   RiTruckLine,
+  RiMapPinRangeLine,
+  RiMapPin2Fill,
   RiCalendarLine,
   RiNumbersLine,
   RiDownloadLine,
@@ -489,7 +491,7 @@ export default function Cargas() {
             <tbody className="divide-y divide-gray-200">
               {loading && (
                 <tr>
-                  <td className="p-8 text-center" colSpan={7}>
+                  <td className="p-8 text-center" colSpan={9}>
                     <div className="flex flex-col items-center justify-center py-8">
                       <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mb-3"></div>
                       <p className="text-gray-600">Cargando cargas...</p>
@@ -500,7 +502,7 @@ export default function Cargas() {
 
               {err && !loading && (
                 <tr>
-                  <td className="p-8 text-center" colSpan={7}>
+                  <td className="p-8 text-center" colSpan={9}>
                     <div className="flex flex-col items-center justify-center py-4 text-red-600">
                       <RiErrorWarningLine className="text-3xl mb-2" />
                       <p className="font-medium">{err}</p>
@@ -516,7 +518,7 @@ export default function Cargas() {
 
               {!loading && !err && cargas.length === 0 && (
                 <tr>
-                  <td className="p-8 text-center" colSpan={7}>
+                  <td className="p-8 text-center" colSpan={9}>
                     <div className="flex flex-col items-center justify-center py-8">
                       <RiBox3Line className="text-4xl text-gray-400 mb-3" />
                       <p className="text-gray-600 font-medium">
@@ -686,6 +688,25 @@ export default function Cargas() {
           <div className="space-y-6">
             {/* Información básica */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="p-4 bg-gray-50 rounded-lg">
+                <div className="flex items-center gap-2 mb-2">
+                  <RiMapPinRangeLine className="text-teal-600" />
+                  <span className="font-medium">Origen</span>
+                </div>
+                <p className="text-gray-900">
+                  {currentCargaDetail.origen}
+                </p>
+              </div>
+              <div className="p-4 bg-gray-50 rounded-lg">
+                <div className="flex items-center gap-2 mb-2">
+                  <RiMapPin2Fill className="text-red-600" />
+                  <span className="font-medium">Destino</span>
+                </div>
+                <p className="text-gray-900">
+                  {currentCargaDetail.destino}
+                </p>
+              </div>
+
               <div className="p-4 bg-gray-50 rounded-lg">
                 <div className="flex items-center gap-2 mb-2">
                   <RiUserLine className="text-blue-600" />
