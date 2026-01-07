@@ -8,6 +8,7 @@ import {
   descargarEtiquetasDeCarga,
   descargarBlobComoPDF,
   updateCarga,
+  descargarConsolidadoPDF,
 } from "../api/cargas";
 import CargaFormModal from "../components/CargaFormModal";
 import ConfirmDialog from "../components/ConfirmDialog";
@@ -39,6 +40,7 @@ import {
   RiCalendarEventLine,
   RiCalendarCheckLine,
   RiCalendar2Line,
+  RiFileDownloadLine,
 } from "react-icons/ri";
 import { useNavigate } from "react-router-dom";
 
@@ -129,6 +131,38 @@ export default function Cargas() {
   const handleEdit = (c) => {
     setEditing(c);
     setOpenForm(true);
+  };
+
+  const descargarConsolidado = async (cargaId, cargaClienteId) => {
+    try {
+      // Verificar permisos para clientes
+      if (user.rol === "cliente" && user.cliente !== cargaClienteId) {
+        alert("No tiene permisos para descargar el consolidado de esta carga");
+        return;
+      }
+
+      // Mostrar indicador de carga
+      const loadingAlert = alert("Generando consolidado PDF...");
+
+      const blob = await descargarConsolidadoPDF(cargaId);
+
+      // Cerrar alerta de carga
+      if (loadingAlert) loadingAlert.close();
+
+      // Crear nombre de archivo seguro
+      const fecha = new Date().toISOString().split("T")[0];
+      descargarBlobComoPDF(blob, `consolidado_carga_${cargaId}_${fecha}.pdf`);
+    } catch (e) {
+      console.error(e);
+      if (e.response?.status === 403) {
+        alert("No tiene permisos para descargar el consolidado de esta carga");
+      } else {
+        alert(
+          "No se pudo generar el consolidado PDF: " +
+            (e.message || "Error desconocido")
+        );
+      }
+    }
   };
 
   const handleCreateSubmit = async (payload, editingId = null) => {
@@ -430,7 +464,7 @@ export default function Cargas() {
             <thead className="bg-gray-50">
               <tr>
                 <th className="p-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  ID
+                  Remesa
                 </th>
                 <th className="p-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Cliente
@@ -544,6 +578,12 @@ export default function Cargas() {
                           className="p-2 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
                           title="Ver detalles">
                           <RiEyeLine className="text-lg" />
+                        </button>
+                        <button
+                          onClick={() => descargarConsolidado(c.id, c.cliente)}
+                          className="p-2 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                          title="Descargar Consolidado PDF">
+                          <RiFileDownloadLine className="text-lg" />
                         </button>
                         {isOnlyAdmin && (
                           <button
@@ -694,10 +734,21 @@ export default function Cargas() {
                   navigate(`/cargas/${currentCargaDetail.id}`);
                 }}
                 className="flex items-center gap-2 px-4 py-2 bg-blue-50 hover:bg-blue-100 text-blue-700 font-medium rounded-lg transition-colors border border-blue-200 shadow-none"
-                style={{ fontSize: "15px" }}
-              >
+                style={{ fontSize: "15px" }}>
                 <RiEyeLine className="text-blue-500 text-base" />
                 Ver más detalles
+              </button>
+              <button
+                onClick={() =>
+                  descargarConsolidado(
+                    currentCargaDetail.id,
+                    currentCargaDetail.cliente
+                  )
+                }
+                className="flex items-center gap-2 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors"
+                title="Descargar Consolidado PDF">
+                <RiFileDownloadLine />
+                Consolidado PDF
               </button>
               {!isCliente && (
                 <button
@@ -707,8 +758,7 @@ export default function Cargas() {
                       currentCargaDetail.cliente
                     )
                   }
-                  className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
-                >
+                  className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors">
                   <RiPrinterLine />
                   Imprimir todas las etiquetas
                 </button>

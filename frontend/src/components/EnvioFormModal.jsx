@@ -30,8 +30,6 @@ const initialForm = {
 const agruparItems = (items) => {
   const grupos = {};
 
-  console.log("DEBUG - Items a agrupar:", items);
-
   items.forEach((item) => {
     // Usar producto_nombre y remisión exactos para agrupar
     const productoNombre = item.producto_nombre || "Producto";
@@ -39,12 +37,6 @@ const agruparItems = (items) => {
 
     // Crear una clave única basada en producto y remisión
     const clave = `${productoNombre}-${remision}`;
-
-    console.log("DEBUG - Procesando item:", {
-      productoNombre,
-      remision,
-      clave,
-    });
 
     if (!grupos[clave]) {
       grupos[clave] = {
@@ -54,20 +46,11 @@ const agruparItems = (items) => {
         valor_unitario: item.valor_unitario || 0,
         items: [],
       };
-      console.log("DEBUG - Nuevo grupo creado:", clave);
     }
     grupos[clave].cantidad += 1;
     grupos[clave].items.push(item);
-
-    console.log(
-      "DEBUG - Item agregado al grupo:",
-      clave,
-      "Cantidad:",
-      grupos[clave].cantidad
-    );
   });
 
-  console.log("DEBUG - Grupos finales:", Object.values(grupos));
   return Object.values(grupos);
 };
 
@@ -114,20 +97,10 @@ export default function EnvioFormModal({ open, onClose, onSubmit, editing }) {
 
   useEffect(() => {
     if (isEdit && editing) {
-      console.log("Datos de edición recibidos:", editing);
-
-      // DEBUG: Ver la estructura completa del primer item
-      if (editing.items && editing.items.length > 0) {
-        console.log(
-          "DEBUG - Estructura completa del primer item:",
-          JSON.stringify(editing.items[0], null, 2)
-        );
-      }
 
       // TRANSFORMACIÓN ROBUSTA - Manejar todas las estructuras posibles
       const itemsTransformados = (editing.items || [])
         .map((item, index) => {
-          console.log(`DEBUG - Procesando item ${index}:`, item);
 
           // ESTRATEGIA 1: Buscar código de barras en múltiples ubicaciones
           let codigoBarra = "";
@@ -190,14 +163,12 @@ export default function EnvioFormModal({ open, onClose, onSubmit, editing }) {
             temporal_id: item.id || `existing_${index}_${Date.now()}`,
           };
 
-          console.log(`DEBUG - Item ${index} transformado:`, itemTransformado);
           return itemTransformado;
         })
         .filter(
           (item) => item.unidad_codigo && item.unidad_codigo.trim() !== ""
         );
 
-      console.log("Items transformados para edición:", itemsTransformados);
 
       setForm({
         cliente: editing.cliente?.id || editing.cliente,
@@ -311,7 +282,7 @@ export default function EnvioFormModal({ open, onClose, onSubmit, editing }) {
   const handleClienteChange = (selected) => {
     setForm((prev) => ({
       ...prev,
-      cliente: selected ? selected.value : null, // ← Solo el ID, no el objeto completo
+      cliente: selected ? selected.value : null,
       items_data: [], // Limpiar items al cambiar cliente
     }));
   };
@@ -327,23 +298,52 @@ export default function EnvioFormModal({ open, onClose, onSubmit, editing }) {
 
   const handleValorUnitarioGrupoChange = (grupoIndex, valorUnitario) => {
     const grupos = agruparItems(form.items_data);
-    const grupo = grupos[grupoIndex];
 
-    // Actualizar todos los items del grupo con el nuevo valor
-    const nuevosItems = form.items_data.map((item) => {
-      if (
-        item.producto_nombre === grupo.producto_nombre &&
-        item.remision === grupo.remision
-      ) {
-        return {
-          ...item,
-          valor_unitario: Number(valorUnitario) || 0,
+    if (grupoIndex < 0 || grupoIndex >= grupos.length) return;
+
+    const grupo = grupos[grupoIndex];
+    const nuevoValor = Number(valorUnitario) || 0;
+
+
+    // Actualizar todos los items del grupo
+    const nuevosItems = [...form.items_data];
+
+    grupo.items.forEach((itemDelGrupo) => {
+      // Buscar el índice exacto en el array principal
+      const indexPrincipal = nuevosItems.findIndex(
+        (item) =>
+          item.temporal_id === itemDelGrupo.temporal_id ||
+          item.unidad_codigo === itemDelGrupo.unidad_codigo
+      );
+
+      if (indexPrincipal !== -1) {
+        nuevosItems[indexPrincipal] = {
+          ...nuevosItems[indexPrincipal],
+          valor_unitario: nuevoValor,
         };
+
       }
-      return item;
     });
 
-    setForm((prev) => ({ ...prev, items_data: nuevosItems }));
+    // Forzar re-render con un nuevo array
+    setForm((prev) => ({
+      ...prev,
+      items_data: [...nuevosItems],
+    }));
+
+  };
+
+  const validarItemsAntesDeEnviar = () => {
+    const itemsConValorCero = form.items_data.filter(
+      (item) => !item.valor_unitario || item.valor_unitario === 0
+    );
+
+    const total = form.items_data.reduce(
+      (sum, item) => sum + (Number(item.valor_unitario) || 0),
+      0
+    );
+
+    return total > 0;
   };
 
   const handleAgregarPorCodigo = async () => {
@@ -388,17 +388,12 @@ export default function EnvioFormModal({ open, onClose, onSubmit, editing }) {
         form.cliente
       );
 
-      console.log(
-        "DEBUG - Validation response structure:",
-        JSON.stringify(validation, null, 2)
-      );
 
       if (!validation.valida) {
         setErrorScan(validation.error);
         return;
       }
 
-      console.log("DEBUG - Validación exitosa:", validation);
 
       // Obtener el nombre del producto de manera robusta
       const productoNombre =
@@ -412,21 +407,11 @@ export default function EnvioFormModal({ open, onClose, onSubmit, editing }) {
       // Buscar la remisión en múltiples niveles de la respuesta
       if (validation.unidad?.remision && validation.unidad.remision !== "N/A") {
         remision = validation.unidad.remision;
-        console.log(
-          "DEBUG - Remisión encontrada en unidad.remision:",
-          remision
-        );
-      } else if (validation.unidad?.carga_item?.carga?.remision) {
+        } else if (validation.unidad?.carga_item?.carga?.remision) {
         remision = validation.unidad.carga_item.carga.remision;
-        console.log(
-          "DEBUG - Remisión encontrada en carga_item.carga.remision:",
-          remision
-        );
-      } else {
-        console.log("DEBUG - No se encontró remisión, usando N/A");
+        } else {
       }
 
-      console.log("DEBUG - Remisión final:", remision);
 
       const precioReferencia =
         validation.unidad?.carga_item?.producto?.precio_referencia || 0;
@@ -462,7 +447,7 @@ export default function EnvioFormModal({ open, onClose, onSubmit, editing }) {
       }, 50);
     } catch (err) {
       setErrorScan("Error al validar la unidad. Intente nuevamente.");
-      console.error("Error en validación:", err);
+      console.error("Error en validación:", err.message);
     } finally {
       setLoadingValidation(false);
     }
@@ -535,11 +520,30 @@ export default function EnvioFormModal({ open, onClose, onSubmit, editing }) {
       return;
     }
 
-    // Preparar items para el backend (mantener estructura individual)
-    const payloadItems = itemsValidos.map((item) => ({
-      unidad_codigo: item.unidad_codigo.trim(),
-      valor_unitario: item.valor_unitario,
-    }));
+    // Validar items antes de enviar
+    if (!validarItemsAntesDeEnviar()) {
+      setErrorScan("Verifique los valores unitarios de los items");
+      return;
+    }
+
+    // **CORRECCIÓN IMPORTANTE:** Asegurar que todos los valores sean números válidos
+    const payloadItems = itemsValidos.map((item) => {
+      // Asegurar que valor_unitario sea un número válido
+      const valorUnitario = Number(item.valor_unitario);
+
+      return {
+        unidad_codigo: item.unidad_codigo.trim(),
+        valor_unitario:
+          !isNaN(valorUnitario) && isFinite(valorUnitario) ? valorUnitario : 0,
+      };
+    });
+
+    // **NUEVO: DEBUG - Verificar qué se está enviando**
+    console.log("DEBUG - Payload items enviados:", payloadItems);
+    console.log(
+      "DEBUG - Valor total calculado:",
+      payloadItems.reduce((sum, item) => sum + item.valor_unitario, 0)
+    );
 
     const payload = {
       cliente: form.cliente,
@@ -549,13 +553,26 @@ export default function EnvioFormModal({ open, onClose, onSubmit, editing }) {
       items_data: payloadItems,
     };
 
+    // **NUEVO: Agregar una confirmación visual antes de enviar**
+    console.log(
+      "DEBUG - Enviando payload completo:",
+      JSON.stringify(payload, null, 2)
+    );
+
     try {
       await onSubmit(payload, editing?.id);
       setHasChanges(false);
       onClose();
     } catch (error) {
       console.error("Error al guardar el envío:", error);
-      setErrorScan("Error al guardar el envío. Intente nuevamente.");
+
+      // **MEJORA: Mostrar errores específicos del backend**
+      const errorMessage =
+        error.response?.data?.error ||
+        error.response?.data?.message ||
+        "Error al guardar el envío. Intente nuevamente.";
+
+      setErrorScan(errorMessage);
     }
   };
 
@@ -563,7 +580,7 @@ export default function EnvioFormModal({ open, onClose, onSubmit, editing }) {
     (opt) => opt.value === form.cliente // ← Buscar por ID, no por objeto
   );
   const total = form.items_data.reduce(
-    (sum, item) => sum + (item.valor_unitario || 0),
+    (sum, item) => sum + (Number(item.valor_unitario) || 0),
     0
   );
 
@@ -668,6 +685,16 @@ export default function EnvioFormModal({ open, onClose, onSubmit, editing }) {
               </button>
             )}
           </div>
+
+          {/* Indicador de cambios no guardados */}
+          {hasChanges && (
+            <div className="mb-3 p-2 bg-yellow-50 border border-yellow-200 rounded">
+              <div className="flex items-center gap-2 text-yellow-700 text-sm">
+                <RiErrorWarningLine />
+                <span>Tiene cambios sin guardar en los items</span>
+              </div>
+            </div>
+          )}
 
           <div className="bg-gray-50 p-4 rounded-lg mb-4">
             <div className="flex gap-3">
