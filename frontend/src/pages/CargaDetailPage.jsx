@@ -23,7 +23,9 @@ import {
   RiImageLine,
   RiFileLine,
   RiExternalLinkLine,
-  RiCheckboxCircleLine
+  RiCheckboxCircleLine,
+  RiMapPinRangeLine,
+  RiMapPin2Fill,
 } from "react-icons/ri";
 
 export default function CargaDetailPage() {
@@ -268,6 +270,24 @@ export default function CargaDetailPage() {
           </h2>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Origen */}
+            <div className="p-4 bg-gray-50 rounded-lg">
+              <div className="flex items-center gap-2 mb-2">
+                <RiMapPinRangeLine className="text-teal-600" />
+                <span className="font-medium">Origen</span>
+              </div>
+              <p className="text-gray-900">{carga.origen}</p>
+            </div>
+
+            {/* Destino */}
+            <div className="p-4 bg-gray-50 rounded-lg">
+              <div className="flex items-center gap-2 mb-2">
+                <RiMapPin2Fill className="text-red-600" />
+                <span className="font-medium">Destino</span>
+              </div>
+              <p className="text-gray-900 font-medium text-blue-600">{carga.destino}</p>
+            </div>
+
             {/* Cliente */}
             <div className="p-4 bg-gray-50 rounded-lg">
               <div className="flex items-center gap-2 mb-2">

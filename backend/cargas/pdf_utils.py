@@ -159,6 +159,10 @@ def draw_consolidado_header(c, carga, width, height, margin_horizontal, logo_pat
     c.drawString(col2_x, info_y, f"Cliente: {carga.cliente.nombre}")
     c.drawString(col2_x, info_y - 15, f"Proveedor: {carga.proveedor.nombre}")
     
+    # Origen y Destino
+    c.drawString(margin_horizontal, info_y - 45, f"Origen: {carga.origen}")
+    c.drawString(col2_x, info_y - 45, f"Destino: {carga.destino}")
+
     # Fecha de creación
     fecha_creacion = carga.created_at.strftime('%Y-%m-%d %H:%M:%S')
     c.drawString(col2_x, info_y - 30, f"Fecha Carga: {fecha_creacion}")
@@ -171,7 +175,7 @@ def draw_consolidado_header(c, carga, width, height, margin_horizontal, logo_pat
         # Dividir observaciones en líneas si es muy largo
         obs_lines = split_text(carga.observaciones, 100)
         for i, line in enumerate(obs_lines[:3]):  # Mostrar máximo 3 líneas
-            c.drawString(margin_horizontal, info_y - 85 - (i * 12), line)
+            c.drawString(margin_horizontal, info_y - 100 - (i * 12), line)
     
     # Número de página
     c.setFont("Helvetica", 8)
@@ -313,12 +317,13 @@ def generate_simple_consolidado_pdf(carga):
     c.drawString(margin, height - 90, f"Remisión: {carga.remision}")
     c.drawString(margin, height - 110, f"Cliente: {carga.cliente.nombre}")
     c.drawString(margin, height - 130, f"Proveedor: {carga.proveedor.nombre}")
+    c.drawString(margin, height - 150, f"Origen: {carga.origen} | Destino: {carga.destino}")
     
     # Items agrupados
     grupos_items = obtener_items_agrupados_carga(carga)
     
     c.setFont("Helvetica-Bold", 12)
-    c.drawString(margin, height - 160, "Productos en la carga:")
+    c.drawString(margin, height - 180, "Productos en la carga:")
     c.setFont("Helvetica", 10)
     
     y_position = height - 180

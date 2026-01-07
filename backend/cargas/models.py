@@ -42,6 +42,8 @@ class Carga(models.Model):
         help_text='PDF o imagen (png/jpg)'
     )
     observaciones = models.TextField(blank=True, null=True)
+    origen = models.CharField(max_length=100, default='Null')
+    destino = models.CharField(max_length=100,default='Null')
     estado = models.CharField(max_length=20, choices=ESTADOS, default='recibida')
     
     created_at = models.DateTimeField(auto_now_add=True)
@@ -52,14 +54,13 @@ class Carga(models.Model):
         verbose_name_plural = 'Cargas'
         constraints = [
             models.UniqueConstraint(
-                fields=['cliente', 'proveedor', 'remision'],
+                fields=['cliente', 'proveedor', 'remision'],    
                 name='unique_carga_cliente_proveedor_remision'
                 )
         ]
         
     def __str__(self):
-        return f"CG{self.id} = {self.cliente.nombre} {self.remision}"
-    
+        return f"CG{self.id} = {self.cliente.nombre} {self.remision}"    
     
 class CargaItem(models.Model):
     carga = models.ForeignKey(Carga, on_delete=models.CASCADE, related_name='items')

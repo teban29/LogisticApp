@@ -53,7 +53,7 @@ class CargaSerializer(serializers.ModelSerializer):
         model = Carga
         fields = [
             'id', 'cliente', 'cliente_nombre', 'proveedor', 'proveedor_nombre',
-            'remision', 'factura', 'observaciones', 'estado',
+            'remision', 'factura', 'origen', 'destino', 'observaciones', 'estado',
             'items', 'items_data', 'auto_generar_unidades',
             'created_at', 'updated_at'
         ]
