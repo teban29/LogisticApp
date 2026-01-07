@@ -31,17 +31,17 @@ const agruparItems = (items) => {
   const grupos = {};
 
   items.forEach((item) => {
-    // Usar producto_nombre y remisión exactos para agrupar
+    // Usar producto_nombre y remesa exactos para agrupar
     const productoNombre = item.producto_nombre || "Producto";
-    const remision = item.remision || "N/A";
+    const remesa = item.remesa || "N/A";
 
-    // Crear una clave única basada en producto y remisión
-    const clave = `${productoNombre}-${remision}`;
+    // Crear una clave única basada en producto y remesa
+    const clave = `${productoNombre}-${remesa}`;
 
     if (!grupos[clave]) {
       grupos[clave] = {
         producto_nombre: productoNombre,
-        remision: remision,
+        remesa: remesa,
         cantidad: 0,
         valor_unitario: item.valor_unitario || 0,
         items: [],
@@ -137,19 +137,18 @@ export default function EnvioFormModal({ open, onClose, onSubmit, editing }) {
             }
           }
 
-          // ESTRATEGIA 3: Buscar remisión en múltiples ubicaciones
-          let remision = "N/A";
-          const posiblesUbicacionesRemision = [
-            item.remision,
-            item.unidad_detalle?.remision,
-            item.unidad_detalle?.carga_item?.carga?.remision,
-            item.unidad?.carga_item?.carga?.remision,
-            item.carga?.remision,
+          // ESTRATEGIE 3: Buscar ID de carga (Remesa) en múltiples ubicaciones
+          let remesa = "N/A";
+          const posiblesUbicacionesRemesa = [
+            item.remesa,
+            item.unidad_detalle?.carga_id,
+            item.unidad?.carga_id,
+            item.carga_id,
           ];
 
-          for (const ubicacion of posiblesUbicacionesRemision) {
-            if (ubicacion && ubicacion.trim() !== "") {
-              remision = ubicacion;
+          for (const ubicacion of posiblesUbicacionesRemesa) {
+            if (ubicacion) {
+              remesa = ubicacion;
               break;
             }
           }
@@ -159,7 +158,7 @@ export default function EnvioFormModal({ open, onClose, onSubmit, editing }) {
             unidad_codigo: codigoBarra,
             valor_unitario: Number(item.valor_unitario) || 0,
             producto_nombre: productoNombre,
-            remision: remision,
+            remesa: remesa,
             temporal_id: item.id || `existing_${index}_${Date.now()}`,
           };
 
@@ -210,10 +209,9 @@ export default function EnvioFormModal({ open, onClose, onSubmit, editing }) {
                     item.unidad?.carga_item?.producto?.nombre ||
                     "Producto";
 
-                  const remision =
-                    item.unidad_detalle?.remision ||
-                    item.unidad_detalle?.carga_item?.carga?.remision ||
-                    item.unidad?.carga_item?.carga?.remision ||
+                  const remesa =
+                    item.unidad_detalle?.carga_id ||
+                    item.unidad?.carga_id ||
                     "N/A";
 
                   return {
@@ -221,7 +219,7 @@ export default function EnvioFormModal({ open, onClose, onSubmit, editing }) {
                     unidad_codigo: codigoBarra,
                     valor_unitario: Number(item.valor_unitario) || 0,
                     producto_nombre: productoNombre,
-                    remision: remision,
+                    remesa: remesa,
                     temporal_id: item.id || `existing_${item.id}`,
                   };
                 })
@@ -401,15 +399,11 @@ export default function EnvioFormModal({ open, onClose, onSubmit, editing }) {
         validation.unidad?.carga_item?.producto?.nombre ||
         "Producto";
 
-      // OBTENER REMISIÓN - ESTRUCTURA MEJORADA
-      let remision = "N/A";
+      // OBTENER ID DE CARGA (REMESA)
+      let remesa = "N/A";
 
-      // Buscar la remisión en múltiples niveles de la respuesta
-      if (validation.unidad?.remision && validation.unidad.remision !== "N/A") {
-        remision = validation.unidad.remision;
-        } else if (validation.unidad?.carga_item?.carga?.remision) {
-        remision = validation.unidad.carga_item.carga.remision;
-        } else {
+      if (validation.unidad?.carga_id) {
+        remesa = validation.unidad.carga_id;
       }
 
 
@@ -425,7 +419,7 @@ export default function EnvioFormModal({ open, onClose, onSubmit, editing }) {
             unidad_codigo: codigoBarras,
             valor_unitario: precioReferencia,
             producto_nombre: productoNombre,
-            remision: remision,
+            remesa: remesa,
             temporal_id: Date.now() + Math.random(),
           },
         ],
@@ -483,7 +477,7 @@ export default function EnvioFormModal({ open, onClose, onSubmit, editing }) {
       (item) =>
         !(
           item.producto_nombre === grupo.producto_nombre &&
-          item.remision === grupo.remision
+          item.remesa === grupo.remesa
         )
     );
 
@@ -782,8 +776,8 @@ export default function EnvioFormModal({ open, onClose, onSubmit, editing }) {
                             {grupo.producto_nombre} × {grupo.cantidad}
                           </h5>
                           <p className="text-sm text-gray-600 mt-1">
-                            Remisión:{" "}
-                            <span className="font-mono">{grupo.remision}</span>
+                            Remesa:{" "}
+                            <span className="font-mono">{grupo.remesa}</span>
                           </p>
                           <p className="text-sm text-gray-500 mt-1">
                             Valor unitario:{" "}

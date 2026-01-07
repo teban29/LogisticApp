@@ -359,7 +359,7 @@ export default function Cargas() {
                 <RiSearchLine className="h-4 w-4 text-gray-400" />
               </div>
               <input
-                placeholder="Remisión, cliente, proveedor..."
+                placeholder="Remesa, cliente, proveedor, remisión cliente..."
                 className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-colors"
                 value={search}
                 onChange={(e) => {
@@ -475,7 +475,7 @@ export default function Cargas() {
                   Proveedor
                 </th>
                 <th className="p-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Remisión
+                  Remisión Cliente
                 </th>
                 <th className="p-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Fecha

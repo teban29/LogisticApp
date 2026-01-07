@@ -13,6 +13,8 @@ import {
   RiInformationLine,
   RiBox3Line,
   RiNumbersLine,
+  RiMapPinRangeLine,
+  RiMapPin2Fill,
   RiCheckboxCircleLine,
 } from "react-icons/ri";
 
@@ -31,6 +33,7 @@ export default function CargaFormModal({
     auto_generar_unidades: true,
     origen: "",
     destino: "",
+    direccion: "",
   });
 
   const [items, setItems] = useState([
@@ -175,6 +178,7 @@ export default function CargaFormModal({
         auto_generar_unidades: true,
         origen: "",
         destino: "",
+        direccion: "",
       });
       setItems([{ producto_nombre: "", producto_sku: "", cantidad: 1 }]);
       setError("");
@@ -199,6 +203,7 @@ export default function CargaFormModal({
         auto_generar_unidades: true,
         origen: editing.origen || "",
         destino: editing.destino || "",
+        direccion: editing.direccion || "",
       });
       setItems(
         (editing.items || []).map((it) => ({
@@ -222,7 +227,8 @@ export default function CargaFormModal({
         auto_generar_unidades: true,
         origen: "",
         destino: "",
-      });
+        direccion: "",
+        });
       setItems([{ producto_nombre: "", producto_sku: "", cantidad: 1 }]);
       setProveedorSearch("");
     }
@@ -241,6 +247,7 @@ export default function CargaFormModal({
             auto_generar_unidades: true,
             origen: editing.origen || "",
             destino: editing.destino || "",
+            direccion: editing.direccion || "",
           }
         : {
             cliente: "",
@@ -251,6 +258,7 @@ export default function CargaFormModal({
             auto_generar_unidades: true,
             origen: "",
             destino: "",
+            direccion: "",
           };
 
       const initialItems = editing
@@ -375,7 +383,20 @@ export default function CargaFormModal({
       return;
     }
     if (!form.remision || String(form.remision).trim() === "") {
-      setError("Ingresa la remisión");
+      setFieldErrors((prev) => ({ ...prev, remision: "Ingresa la remisión" }));
+      setError("Por favor complete los campos obligatorios");
+      setSaving(false);
+      return;
+    }
+    if (!form.origen || String(form.origen).trim() === "") {
+      setFieldErrors((prev) => ({ ...prev, origen: "Ingresa el origen" }));
+      setError("Por favor complete los campos obligatorios");
+      setSaving(false);
+      return;
+    }
+    if (!form.destino || String(form.destino).trim() === "") {
+      setFieldErrors((prev) => ({ ...prev, destino: "Ingresa el destino" }));
+      setError("Por favor complete los campos obligatorios");
       setSaving(false);
       return;
     }
@@ -406,6 +427,7 @@ export default function CargaFormModal({
       facturaFile: form.facturaFile,
       origen: form.origen,
       destino: form.destino,
+      direccion: form.direccion,
     };
 
     console.log("Payload para editar:", JSON.stringify(payload, null, 2));
@@ -597,7 +619,7 @@ export default function CargaFormModal({
           {/* Remisión - Con manejo de error específico */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Remisión <span className="text-red-500">*</span>
+              Remisión Cliente <span className="text-red-500">*</span>
             </label>
             <div className="relative">
               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -644,29 +666,87 @@ export default function CargaFormModal({
           {/* Origen */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Origen
+              Origen <span className="text-red-500">*</span>
             </label>
-            <input
-              type="text"
-              name="origen"
-              value={form.origen}
-              onChange={handleChange}
-              className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-colors"
-            />
+            <div className="relative">
+              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                <RiMapPinRangeLine className="h-5 w-5 text-gray-400" />
+              </div>
+              <input
+                type="text"
+                name="origen"
+                value={form.origen}
+                onChange={handleChange}
+                className={`w-full pl-10 pr-4 py-2.5 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-colors ${
+                  fieldErrors.origen ? "border-red-500 bg-red-50" : "border-gray-300"
+                }`}
+                placeholder="Bodega A, Puerto, etc."
+                required
+              />
+            </div>
+            {fieldErrors.origen && (
+              <p className="mt-1 text-sm text-red-600 flex items-center gap-1">
+                <RiCloseLine className="flex-shrink-0" />
+                {fieldErrors.origen}
+              </p>
+            )}
           </div>
 
           {/* Destino */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Destino
+              Destino <span className="text-red-500">*</span>
             </label>
-            <input
-              type="text"
-              name="destino"
-              value={form.destino}
-              onChange={handleChange}
-              className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-colors"
-            />
+            <div className="relative">
+              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                <RiMapPin2Fill className="h-5 w-5 text-gray-400" />
+              </div>
+              <input
+                type="text"
+                name="destino"
+                value={form.destino}
+                onChange={handleChange}
+                className={`w-full pl-10 pr-4 py-2.5 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-colors ${
+                  fieldErrors.destino ? "border-red-500 bg-red-50" : "border-gray-300"
+                }`}
+                placeholder="Ciudad de entrega, Cliente B, etc."
+                required
+              />
+            </div>
+            {fieldErrors.destino && (
+              <p className="mt-1 text-sm text-red-600 flex items-center gap-1">
+                <RiCloseLine className="flex-shrink-0" />
+                {fieldErrors.destino}
+              </p>
+            )}
+          </div>
+
+          {/* Dirección */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Dirección
+            </label>
+            <div className="relative">
+              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                <RiMapPin2Fill className="h-5 w-5 text-gray-400" />
+              </div>
+              <input
+                type="text"
+                name="direccion"
+                value={form.direccion}
+                onChange={handleChange}
+                className={`w-full pl-10 pr-4 py-2.5 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-colors ${
+                  fieldErrors.direccion ? "border-red-500 bg-red-50" : "border-gray-300"
+                }`}
+                placeholder="Ciudad de entrega, Cliente B, etc."
+              />
+            </div>
+            {fieldErrors.direccion && (
+              <p className="mt-1 text-sm text-red-600 flex items-center gap-1">
+                <RiCloseLine className="flex-shrink-0" />
+                {fieldErrors.direccion}
+              </p>
+            )}
           </div>
 
           {/* Observaciones */}

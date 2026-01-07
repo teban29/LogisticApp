@@ -307,7 +307,7 @@ export default function Envios() {
                 <RiSearchLine className="h-4 w-4 text-gray-400" />
               </div>
               <input
-                placeholder="Buscar por número de guía, conductor o cliente"
+                placeholder="Buscar por número de manifiesto, conductor o cliente"
                 className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-colors"
                 value={search}
                 onChange={(e) => {
@@ -378,7 +378,7 @@ export default function Envios() {
             <thead className="bg-gray-50">
               <tr>
                 <th className="p-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  N° Guía
+                  N° Manifiesto
                 </th>
                 <th className="p-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Cliente

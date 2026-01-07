@@ -208,8 +208,8 @@ export default function EnvioDetailModal({ open, onClose, envio }) {
                         {grupo.producto} × {grupo.cantidad}
                       </h5>
                       <p className="text-sm text-gray-600 mt-1">
-                        Remisión:{" "}
-                        <span className="font-mono">{grupo.remision}</span>
+                        Remesa:{" "}
+                        <span className="font-mono">{grupo.remesa}</span>
                       </p>
                       {isAdmin && (
                         <p className="text-sm text-gray-500 mt-1">

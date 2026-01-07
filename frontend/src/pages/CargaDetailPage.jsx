@@ -288,6 +288,15 @@ export default function CargaDetailPage() {
               <p className="text-gray-900 font-medium text-blue-600">{carga.destino}</p>
             </div>
 
+            {/* Direccion */}
+            <div className="p-4 bg-gray-50 rounded-lg">
+              <div className="flex items-center gap-2 mb-2">
+                <RiMapPin2Fill className="text-red-600" />
+                <span className="font-medium">Direccion</span>
+              </div>
+              <p className="text-gray-900 font-medium text-blue-600">{carga.direccion || "No definido"}</p>
+            </div>
+
             {/* Cliente */}
             <div className="p-4 bg-gray-50 rounded-lg">
               <div className="flex items-center gap-2 mb-2">

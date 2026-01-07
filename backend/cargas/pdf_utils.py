@@ -39,7 +39,6 @@ def generate_consolidado_pdf(carga):
             data.append([
                 grupo['producto_nombre'], 
                 str(grupo['cantidad']), 
-                grupo['producto_sku'] or 'N/A'
             ])
             total_unidades += grupo['cantidad']
         
@@ -71,7 +70,7 @@ def generate_consolidado_pdf(carga):
         
         resumen_y = 105
         for grupo in grupos_items:
-            resumen_text = f"• {grupo['producto_nombre']}: {grupo['cantidad']} unidad(es) - SKU: {grupo['producto_sku'] or 'N/A'}"
+            resumen_text = f"• {grupo['producto_nombre']}: {grupo['cantidad']} unidad(es)"
             # Truncar si es muy largo
             if len(resumen_text) > 80:
                 resumen_text = resumen_text[:77] + "..."
@@ -101,7 +100,6 @@ def obtener_items_agrupados_carga(carga):
     # Diccionario para agrupar: clave = (producto_nombre, producto_sku)
     grupos_dict = defaultdict(lambda: {
         'producto_nombre': '',
-        'producto_sku': '',
         'cantidad': 0,
         'items_ids': []
     })
@@ -109,13 +107,11 @@ def obtener_items_agrupados_carga(carga):
     for item in items:
         producto = getattr(item, 'producto', None)
         producto_nombre = getattr(producto, 'nombre', 'Producto') if producto else 'Producto'
-        producto_sku = getattr(producto, 'sku', '') if producto else ''
         
         # Clave única para agrupar
-        clave = (producto_nombre, producto_sku)
+        clave = (producto_nombre)
         
         grupos_dict[clave]['producto_nombre'] = producto_nombre
-        grupos_dict[clave]['producto_sku'] = producto_sku
         grupos_dict[clave]['cantidad'] += item.cantidad
         grupos_dict[clave]['items_ids'].append(item.id)
     
@@ -140,42 +136,39 @@ def draw_consolidado_header(c, carga, width, height, margin_horizontal, logo_pat
     c.drawString((width - title_width) / 2, height - 50, title)
     
     c.setFont("Helvetica", 14)
-    subtitle = "CONSOLIDADO DE MERCANCÍA"
+    subtitle = "REMESA DE MERCANCÍA"
     subtitle_width = c.stringWidth(subtitle, "Helvetica", 14)
     c.drawString((width - subtitle_width) / 2, height - 70, subtitle)
     
     # Información de la carga
     c.setFont("Helvetica-Bold", 12)
-    c.drawString(margin_horizontal, height - 100, "Información de la Carga:")
+    c.drawString(margin_horizontal, height - 100, "Información de la Remesa:")
     c.setFont("Helvetica", 10)
     
-    info_y = height - 120
-    c.drawString(margin_horizontal, info_y, f"Remesa ID: {carga.id}")
-    c.drawString(margin_horizontal, info_y - 15, f"Remisión: {carga.remision}")
-    c.drawString(margin_horizontal, info_y - 30, f"Factura: {carga.factura or 'N/A'}")
+    # Fecha de creación
+    fecha_creacion = carga.created_at.strftime('%Y-%m-%d')
     
-    # Columna derecha
+    info_y = height - 120
+    # Columna Izquierda
+    c.drawString(margin_horizontal, info_y, f"Remesa ID: {carga.id}")
+    c.drawString(margin_horizontal, info_y - 15, f"Remisión Cliente: {carga.remision}")
+    c.drawString(margin_horizontal, info_y - 30, f"Fecha Carga: {fecha_creacion}")
+    c.drawString(margin_horizontal, info_y - 45, f"Origen: {carga.origen}")
+    
+    # Columna Derecha
     col2_x = width / 2
     c.drawString(col2_x, info_y, f"Cliente: {carga.cliente.nombre}")
     c.drawString(col2_x, info_y - 15, f"Proveedor: {carga.proveedor.nombre}")
-    
-    # Origen y Destino
-    c.drawString(margin_horizontal, info_y - 45, f"Origen: {carga.origen}")
+    c.drawString(col2_x, info_y - 30, f"Forma de Pago: {carga.observaciones or 'N/A'}")
     c.drawString(col2_x, info_y - 45, f"Destino: {carga.destino}")
-
-    # Fecha de creación
-    fecha_creacion = carga.created_at.strftime('%Y-%m-%d %H:%M:%S')
-    c.drawString(col2_x, info_y - 30, f"Fecha Carga: {fecha_creacion}")
+    
+    # Dirección (ocupa ancho completo o bajo Destino)
+    c.drawString(margin_horizontal, info_y - 60, f"Dirección: {carga.direccion or 'N/A'}")
     
     # Observaciones (si existen)
-    if carga.observaciones:
-        c.setFont("Helvetica-Bold", 10)
-        c.drawString(margin_horizontal, info_y - 70, "Observaciones:")
-        c.setFont("Helvetica", 9)
-        # Dividir observaciones en líneas si es muy largo
-        obs_lines = split_text(carga.observaciones, 100)
-        for i, line in enumerate(obs_lines[:3]):  # Mostrar máximo 3 líneas
-            c.drawString(margin_horizontal, info_y - 100 - (i * 12), line)
+    # Observaciones adicionales si no se usaron como Forma de Pago (opcional, pero las quitamos si ya se ven arriba)
+    # Si quitamos el bloque de arriba, las dejamos aquí. El usuario pidió orden sugerido.
+    # Por ahora las mantendremos ocultas si ya están en Forma de Pago.
     
     # Número de página
     c.setFont("Helvetica", 8)
@@ -189,20 +182,19 @@ def draw_consolidado_table(c, data, width, height, margin_horizontal, carga, log
         c.drawString(margin_horizontal, height - 200, "No hay productos para mostrar")
         return
     
-    # Configuración de la tabla con 3 columnas
+    # Configuración de la tabla con 2 columnas: Producto y Cantidad
     table_width = width - (2 * margin_horizontal)
     col_widths = [
-        table_width * 0.50,  # Producto (más ancho)
-        table_width * 0.20,  # Cantidad
-        table_width * 0.30,  # SKU
+        table_width * 0.75,  # Producto (más ancho)
+        table_width * 0.25,  # Cantidad
     ]
     
-    # Posición inicial de la tabla con margen superior
-    table_start_y = height - 200
+    # Posición inicial de la tabla con más margen superior para evitar superposición
+    table_start_y = height - 230
     cell_height = 25
     
     # Encabezados de la tabla
-    headers = ["Producto", "Cantidad", "SKU"]
+    headers = ["Producto", "Cantidad"]
     
     # Calcular posición X para centrar la tabla
     table_x_start = (width - table_width) / 2
@@ -210,7 +202,6 @@ def draw_consolidado_table(c, data, width, height, margin_horizontal, carga, log
     x_positions = [
         table_x_start,
         table_x_start + col_widths[0],
-        table_x_start + col_widths[0] + col_widths[1],
     ]
     
     current_y = table_start_y
@@ -311,13 +302,14 @@ def generate_simple_consolidado_pdf(carga):
     
     # Encabezado
     c.setFont("Helvetica-Bold", 16)
-    c.drawString(margin, height - 50, "CONSOLIDADO DE MERCANCÍA")
+    c.drawString(margin, height - 50, "REMESA DE MERCANCÍA")
     c.setFont("Helvetica", 12)
-    c.drawString(margin, height - 70, f"Remesa ID: {carga.id}")
-    c.drawString(margin, height - 90, f"Remisión: {carga.remision}")
-    c.drawString(margin, height - 110, f"Cliente: {carga.cliente.nombre}")
-    c.drawString(margin, height - 130, f"Proveedor: {carga.proveedor.nombre}")
-    c.drawString(margin, height - 150, f"Origen: {carga.origen} | Destino: {carga.destino}")
+    c.drawString(margin, height - 75, f"Remesa ID: {carga.id}")
+    c.drawString(margin, height - 90, f"Remisión Cliente: {carga.remision}")
+    c.drawString(margin, height - 105, f"Cliente: {carga.cliente.nombre}")
+    c.drawString(margin, height - 120, f"Proveedor: {carga.proveedor.nombre}")
+    c.drawString(margin, height - 135, f"Origen: {carga.origen} | Destino: {carga.destino}")
+    c.drawString(margin, height - 150, f"Dirección: {carga.direccion or 'N/A'}")
     
     # Items agrupados
     grupos_items = obtener_items_agrupados_carga(carga)
@@ -330,7 +322,7 @@ def generate_simple_consolidado_pdf(carga):
     total_unidades = 0
     
     for grupo in grupos_items:
-        texto_item = f"• {grupo['producto_nombre']} - Cantidad: {grupo['cantidad']} - SKU: {grupo['producto_sku'] or 'N/A'}"
+        texto_item = f"• {grupo['producto_nombre']} - Cantidad: {grupo['cantidad']}"
         c.drawString(margin, y_position, texto_item)
         y_position -= 15
         total_unidades += grupo['cantidad']

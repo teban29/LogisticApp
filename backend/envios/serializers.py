@@ -62,14 +62,15 @@ class EnvioSerializer(serializers.ModelSerializer):
             'unidad__carga_item__carga'
         )
         
-        # Agrupar por producto y remisión
+        # Agrupar por producto y ID de carga (Remesa)
         grupos = {}
         for item in items:
-            clave = f"{item.unidad.carga_item.producto.id}-{item.unidad.carga_item.carga.remision}"
+            carga_id = item.unidad.carga_item.carga.id
+            clave = f"{item.unidad.carga_item.producto.id}-{carga_id}"
             if clave not in grupos:
                 grupos[clave] = {
                     'producto': item.unidad.carga_item.producto.nombre,
-                    'remision': item.unidad.carga_item.carga.remision,
+                    'remesa': carga_id,
                     'cantidad': 0,
                     'valor_unitario': item.valor_unitario,
                     'items_ids': []
