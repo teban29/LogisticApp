@@ -33,7 +33,7 @@ const obtenerInfoCompletaUnidad = async (codigoBarra) => {
       precio_referencia: 0, // Puedes ajustar esto según tu modelo
       cliente_id: unidad.cliente_id,
       cliente_nombre: unidad.cliente_nombre || "Cliente",
-      remision: unidad.remision || "N/A",
+      remesa: unidad.carga_id || "N/A",
       temporal_id: Date.now() + Math.random(),
     };
   } catch (error) {
@@ -45,7 +45,7 @@ const obtenerInfoCompletaUnidad = async (codigoBarra) => {
       precio_referencia: 0,
       cliente_id: null,
       cliente_nombre: "Cliente",
-      remision: "N/A",
+      remesa: "N/A",
       temporal_id: Date.now() + Math.random(),
     };
   }
@@ -60,15 +60,15 @@ const agruparItemsMasivo = (items) => {
   items.forEach((item) => {
     const clienteNombre = item.cliente_nombre || "Cliente";
     const productoNombre = item.producto_nombre || "Producto";
-    const remision = item.remision || "N/A";
+    const remesa = item.remesa || "N/A";
 
-    // Crear una clave única basada en cliente + producto + remisión
-    const clave = `${clienteNombre}-${productoNombre}-${remision}`;
+    // Crear una clave única basada en cliente + producto + remesa
+    const clave = `${clienteNombre}-${productoNombre}-${remesa}`;
 
     console.log("DEBUG - Procesando item (masivo):", {
       clienteNombre,
       productoNombre,
-      remision,
+      remesa,
       clave,
     });
 
@@ -77,7 +77,7 @@ const agruparItemsMasivo = (items) => {
         cliente_nombre: clienteNombre,
         cliente_id: item.cliente_id,
         producto_nombre: productoNombre,
-        remision: remision,
+        remesa: remesa,
         cantidad: 0,
         items: [],
       };
@@ -241,7 +241,7 @@ export default function EscaneoMasivoModal({
           precio_referencia: 0,
           cliente_id: null,
           cliente_nombre: "Cliente",
-          remision: "N/A",
+          remesa: "N/A",
           temporal_id: Date.now() + Math.random(),
         },
       ]);
@@ -295,7 +295,7 @@ export default function EscaneoMasivoModal({
         !(
           item.cliente_nombre === grupo.cliente_nombre &&
           item.producto_nombre === grupo.producto_nombre &&
-          item.remision === grupo.remision
+          item.remesa === grupo.remesa
         )
     );
 
@@ -585,8 +585,8 @@ export default function EscaneoMasivoModal({
                             {grupo.cantidad}
                           </h5>
                           <p className="text-sm text-gray-600 mt-1">
-                            Remisión:{" "}
-                            <span className="font-mono">{grupo.remision}</span>
+                            Remesa:{" "}
+                            <span className="font-mono">{grupo.remesa}</span>
                           </p>
                           <p className="text-sm text-blue-600 font-semibold mt-1">
                             {grupo.cantidad} unidad(es) para este cliente
@@ -654,7 +654,7 @@ export default function EscaneoMasivoModal({
                           {item.cliente_nombre} - {item.producto_nombre}
                         </p>
                         <p className="text-xs text-gray-500">
-                          Rem: {item.remision}
+                          Rem: {item.remesa}
                         </p>
                         <p className="font-mono text-xs bg-gray-100 p-1.5 rounded text-gray-600 mt-1">
                           {item.codigo}

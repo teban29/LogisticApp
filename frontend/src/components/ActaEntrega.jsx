@@ -13,9 +13,9 @@ const ActaEntrega = ({ envio, onClose }) => {
     return "Producto";
   };
 
-  const getRemision = (item) => {
+  const getRemesa = (item) => {
     if (item.unidad && item.unidad.carga_item && item.unidad.carga_item.carga) {
-      return item.unidad.carga_item.carga.remision || "N/A";
+      return item.unidad.carga_item.carga.id || "N/A";
     }
     return "N/A";
   };
@@ -90,7 +90,7 @@ const ActaEntrega = ({ envio, onClose }) => {
                 Nombre del Producto
               </th>
               <th className="border border-gray-300 px-4 py-3 text-left font-semibold text-gray-700">
-                Remisión de Carga
+                Remesa
               </th>
               <th className="border border-gray-300 px-4 py-3 text-left font-semibold text-gray-700">
                 Proveedor
@@ -108,7 +108,7 @@ const ActaEntrega = ({ envio, onClose }) => {
                     {getProductoNombre(item)}
                   </td>
                   <td className="border border-gray-300 px-4 py-3 text-gray-800">
-                    {getRemision(item)}
+                    {getRemesa(item)}
                   </td>
                   <td className="border border-gray-300 px-4 py-3 text-gray-800">
                     {getProveedor(item)}

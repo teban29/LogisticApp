@@ -92,6 +92,7 @@ class CargaViewSet(viewsets.ModelViewSet):
         
         # Obtener parámetros de filtro
         search = self.request.query_params.get('search')
+        id = self.request.query_params.get('id')
         cliente_id = self.request.query_params.get('cliente_id')
         proveedor_id = self.request.query_params.get('proveedor_id')
         estado = self.request.query_params.get('estado')
@@ -117,6 +118,7 @@ class CargaViewSet(viewsets.ModelViewSet):
         if search:
             queryset = queryset.filter(
                 Q(remision__icontains=search) |
+                Q(id__icontains=search) |
                 Q(cliente__nombre__icontains=search) |
                 Q(proveedor__nombre__icontains=search) |
                 Q(items__producto__nombre__icontains=search) |

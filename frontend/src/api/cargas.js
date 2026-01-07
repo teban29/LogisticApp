@@ -42,6 +42,7 @@ export async function createCarga(payload) {
   );
   form.append("origen", payload.origen);
   form.append("destino", payload.destino);
+  form.append("direccion", payload.direccion);
 
   if (payload.items_data && payload.items_data.length > 0) {
     form.append("items_data", JSON.stringify(payload.items_data));
@@ -69,6 +70,7 @@ export async function updateCarga(id, payload) {
   if (payload.facturaFile) form.append("factura", payload.facturaFile);
   if (payload.origen) form.append("origen", payload.origen);
   if (payload.destino) form.append("destino", payload.destino);
+  if (payload.direccion) form.append("direccion", payload.direccion);
 
   const res = await api.patch(`/api/cargas/${id}/`, form);
   return res.data;

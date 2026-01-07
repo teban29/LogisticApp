@@ -299,10 +299,10 @@ export default function EnvioDetailPage() {
               </button>
               <div>
                 <h1 className="text-3xl font-bold text-gray-900">
-                  Envío #{envio.numero_guia}
+                  Manifiesto #{envio.numero_guia}
                 </h1>
                 <p className="text-gray-600 mt-1">
-                  Detalles completos del envío
+                  Detalles completos del manifiesto
                 </p>
               </div>
             </div>
@@ -386,7 +386,7 @@ export default function EnvioDetailPage() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-1">
                   <label className="block text-sm font-medium text-gray-500">
-                    Número de Guía
+                    Número de Manifiesto
                   </label>
                   <p className="font-mono text-lg font-semibold text-gray-900">
                     {envio.numero_guia}
@@ -474,8 +474,8 @@ export default function EnvioDetailPage() {
                             {grupo.producto} <span className="text-gray-500 font-normal">×</span> {grupo.cantidad}
                           </h5>
                           <p className="text-sm text-gray-600 mt-1">
-                            Remisión:{" "}
-                            <span className="font-mono bg-gray-200 px-2 py-0.5 rounded">{grupo.remision}</span>
+                            Remesa:{" "}
+                            <span className="font-mono bg-gray-200 px-2 py-0.5 rounded">{grupo.remesa}</span>
                           </p>
                           {isAdmin && (
                             <p className="text-sm text-gray-500 mt-1">

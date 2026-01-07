@@ -151,11 +151,11 @@ def draw_header(c, envio, width, height, margin_horizontal, logo_path, page_num)
     
     # Información del envío
     c.setFont("Helvetica-Bold", 12)
-    c.drawString(margin_horizontal, height - 100, "Información del Envío:")
+    c.drawString(margin_horizontal, height - 100, "Información del Manifiesto:")
     c.setFont("Helvetica", 10)
     
     info_y = height - 120
-    c.drawString(margin_horizontal, info_y, f"Número de Guía: {envio.numero_guia}")
+    c.drawString(margin_horizontal, info_y, f"Número de Manifiesto: {envio.numero_guia}")
     c.drawString(margin_horizontal, info_y - 15, f"Cliente: {envio.cliente.nombre}")
     c.drawString(margin_horizontal, info_y - 30, f"Origen: {envio.origen}")
     
@@ -446,11 +446,11 @@ def draw_billing_header(c, envio, width, height, margin_horizontal, logo_path, p
     c.drawString((width - subtitle_width) / 2, height - 70, subtitle)
     
     c.setFont("Helvetica-Bold", 12)
-    c.drawString(margin_horizontal, height - 100, "Información del Envío:")
+    c.drawString(margin_horizontal, height - 100, "Información del Manifiesto:")
     c.setFont("Helvetica", 10)
     
     info_y = height - 120
-    c.drawString(margin_horizontal, info_y, f"Número de Guía: {envio.numero_guia}")
+    c.drawString(margin_horizontal, info_y, f"Número de Manifiesto: {envio.numero_guia}")
     c.drawString(margin_horizontal, info_y - 15, f"Cliente: {envio.cliente.nombre}")
     c.drawString(margin_horizontal, info_y - 30, f"Origen: {envio.origen}")
     
@@ -587,7 +587,7 @@ def generate_simple_billing_pdf(envio):
     c.setFont("Helvetica-Bold", 16)
     c.drawString(margin, height - 50, "CUENTA DE COBRO")
     c.setFont("Helvetica", 12)
-    c.drawString(margin, height - 70, f"Guía: {envio.numero_guia}")
+    c.drawString(margin, height - 70, f"Manifiesto: {envio.numero_guia}")
     c.drawString(margin, height - 90, f"Cliente: {envio.cliente.nombre}")
     c.drawString(margin, height - 110, f"Origen: {envio.origen}")
     

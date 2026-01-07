@@ -44,13 +44,13 @@ export default function Sidebar({ open, setOpen }) {
     },
     {
       to: '/cargas',
-      label: 'Cargas',
+      label: 'Remesas',
       icon: <RiArchive2Line />,
       allowedRoles: ['admin', 'operador', 'cliente'],
     },
     {
       to: '/envios',
-      label: 'Envíos',
+      label: 'Manifiestos',
       icon: <RiTruckLine />,
       allowedRoles: ['admin', 'operador', 'cliente', 'conductor'],
     },

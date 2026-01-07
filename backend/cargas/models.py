@@ -43,7 +43,8 @@ class Carga(models.Model):
     )
     observaciones = models.TextField(blank=True, null=True)
     origen = models.CharField(max_length=100, default='Null')
-    destino = models.CharField(max_length=100,default='Null')
+    destino = models.CharField(max_length=100, default='Null')
+    direccion = models.CharField(max_length=100, default='Null', blank=True, null=True)
     estado = models.CharField(max_length=20, choices=ESTADOS, default='recibida')
     
     created_at = models.DateTimeField(auto_now_add=True)
