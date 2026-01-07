@@ -272,25 +272,28 @@ class CargaViewSet(viewsets.ModelViewSet):
         buf = BytesIO()
         c = canvas.Canvas(buf, pagesize=page_size)
 
-        # Medidas del barcode requeridas
-        target_bw = 50*mm
-        target_bh = 20*mm
+        # Medidas del barcode optimizadas para escaneo
+        # Aumentamos el width para que las barras no sean tan delgadas (menor densidad)
+        target_bw = 80*mm
+        target_bh = 22*mm
 
         for u in unidades:
             producto = u.carga_item.producto
             cliente = u.carga_item.carga.cliente
 
             codigo = u.codigo_barra
-            bcode = code128.Code128(codigo, barHeight=target_bh)
+            # Agregamos humanReadable para que aparezca el ID debajo del código
+            bcode = code128.Code128(codigo, barHeight=target_bh, humanReadable=True)
             nat_w, nat_h = bcode.wrap(0, 0)
 
+            # Calculamos escala para ocupar el ancho objetivo sin exceder los límites
+            # Usamos un ancho máximo de 80mm para dar buena "Quiet Zone" a los lados
             sx = float(target_bw) / float(nat_w) if nat_w else 1.0
-            sy = float(target_bh) / float(nat_h) if nat_h else 1.0
+            # No escalamos en Y para mantener la proporción de las barras nítida
+            sy = 1.0 
 
-            s = None
-
-            bx = (label_w - target_bw) / 2.0
-            by = label_h - margin - target_bh - (8*mm)  # Ajustado para mejor espaciado
+            bx = (label_w - (nat_w * sx)) / 2.0
+            by = label_h - margin - target_bh - (5*mm)
 
             c.saveState()
             c.translate(bx, by)
