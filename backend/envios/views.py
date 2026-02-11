@@ -247,7 +247,8 @@ class EnvioViewSet(viewsets.ModelViewSet):
                             'id': u.id,
                             'codigo_barra': u.codigo_barra,
                             'producto': u.carga_item.producto.nombre,
-                            'sku': u.carga_item.producto.sku
+                            'sku': u.carga_item.producto.sku,
+                            'producto_id': u.carga_item.producto.id
                         }
                         for u in unidades_disponibles.select_related('carga_item__producto')
                     ]

@@ -246,3 +246,94 @@ class BusinessLogicSimpleTests(TestCase):
         # Verificar que se actualizó
         envio.refresh_from_db()
         self.assertEqual(envio.valor_total, 0)
+
+
+class ManualEnvioTests(APITestCase):
+    """Tests para creación manual de envíos"""
+    
+    def setUp(self):
+        self.admin_user = Usuario.objects.create_user(
+            username='admin_manual',
+            password='test123',
+            nombre='Admin',
+            apellido='Manual',
+            rol='admin'
+        )
+        self.cliente = Cliente.objects.create(nombre="Cliente Manual", nit="777", is_active=True)
+        self.proveedor = Proveedor.objects.create(nombre="Proveedor Manual", nit="888")
+        self.producto = Producto.objects.create(sku="MANUAL001", nombre="Producto Manual")
+        self.carga = Carga.objects.create(
+            cliente=self.cliente, 
+            proveedor=self.proveedor, 
+            remision="REM-MANUAL",
+            estado='almacenada'
+        )
+        self.carga_item = CargaItem.objects.create(
+            carga=self.carga, 
+            producto=self.producto, 
+            cantidad=10
+        )
+        
+        # Crear 5 unidades disponibles
+        for i in range(5):
+            Unidad.objects.create(
+                carga_item=self.carga_item, 
+                codigo_barra=f"MBAR{i}", 
+                estado='disponible'
+            )
+            
+        self.client.force_authenticate(user=self.admin_user)
+
+    def test_crear_envio_manual(self):
+        """Test de creación de envío con items manuales"""
+        data = {
+            'cliente': self.cliente.id,
+            'conductor': 'Manual Driver',
+            'placa_vehiculo': 'MAN123',
+            'origen': 'Cedes',
+            'manual_items': [
+                {
+                    'carga_id': self.carga.id,
+                    'producto_id': self.producto.id,
+                    'cantidad': 3,
+                    'valor_unitario': 150.00
+                }
+            ]
+        }
+        
+        response = self.client.post('/api/envios/', data, format='json')
+        
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        
+        envio = Envio.objects.get(id=response.data['id'])
+        self.assertEqual(envio.items.count(), 3)
+        self.assertEqual(envio.valor_total, Decimal('450.00'))
+        
+        # Verificar que las unidades pasaron a 'reservada'
+        unidades_reservadas = Unidad.objects.filter(
+            carga_item__carga=self.carga,
+            estado='reservada'
+        ).count()
+        self.assertEqual(unidades_reservadas, 3)
+
+    def test_crear_envio_manual_insuficiente(self):
+        """Test que falla si no hay suficientes unidades"""
+        data = {
+            'cliente': self.cliente.id,
+            'conductor': 'Manual Driver',
+            'placa_vehiculo': 'MAN123',
+            'origen': 'Cedes',
+            'manual_items': [
+                {
+                    'carga_id': self.carga.id,
+                    'producto_id': self.producto.id,
+                    'cantidad': 10, # Solo hay 5
+                    'valor_unitario': 100.00
+                }
+            ]
+        }
+        
+        response = self.client.post('/api/envios/', data, format='json')
+        
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('No hay suficientes unidades disponibles', str(response.data))
