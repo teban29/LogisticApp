@@ -17,7 +17,11 @@ import {
   RiSubtractLine,
   RiErrorWarningLine,
   RiExpandUpDownLine,
+  RiListCheck,
+  RiSettings4Line,
 } from "react-icons/ri";
+import { useAuth } from "../context/AuthContext";
+import { getCargasPorCliente } from "../api/envios";
 
 const initialForm = {
   cliente: null,
@@ -25,6 +29,7 @@ const initialForm = {
   placa_vehiculo: "",
   origen: "",
   items_data: [],
+  manual_items: [], // Nuevo campo para items manuales
 };
 
 const agruparItems = (items) => {
@@ -66,7 +71,13 @@ export default function EnvioFormModal({ open, onClose, onSubmit, editing }) {
   const { loading: enviosLoading } = useEnvios();
   const [hasChanges, setHasChanges] = useState(false);
   const [recentlyAdded, setRecentlyAdded] = useState(false);
-  const [vistaAgrupada, setVistaAgrupada] = useState(true); // Nueva opción para cambiar vista
+  const [vistaAgrupada, setVistaAgrupada] = useState(true);
+  const [modoManual, setModoManual] = useState(false);
+  const [loadingCargas, setLoadingCargas] = useState(false);
+  const [cargasDisponibles, setCargasDisponibles] = useState([]);
+  const [cargaSeleccionada, setCargaSeleccionada] = useState(null);
+  const { user } = useAuth();
+  const isAdmin = user?.rol === 'admin';
 
   // Referencias para controlar el focus
   const inputRef = useRef(null);
@@ -248,7 +259,10 @@ export default function EnvioFormModal({ open, onClose, onSubmit, editing }) {
       setDuplicateError("");
       setHasChanges(false);
       setRecentlyAdded(false);
-      setVistaAgrupada(true); // Resetear a vista agrupada
+      setVistaAgrupada(true);
+      setModoManual(false);
+      setCargaSeleccionada(null);
+      setCargasDisponibles([]);
     }
   }, [open]);
 
@@ -281,8 +295,11 @@ export default function EnvioFormModal({ open, onClose, onSubmit, editing }) {
     setForm((prev) => ({
       ...prev,
       cliente: selected ? selected.value : null,
-      items_data: [], // Limpiar items al cambiar cliente
+      items_data: [], 
+      manual_items: [],
     }));
+    setCargaSeleccionada(null);
+    setCargasDisponibles([]);
   };
 
   const handleValorUnitarioChange = (index, value) => {
@@ -332,16 +349,17 @@ export default function EnvioFormModal({ open, onClose, onSubmit, editing }) {
   };
 
   const validarItemsAntesDeEnviar = () => {
-    const itemsConValorCero = form.items_data.filter(
-      (item) => !item.valor_unitario || item.valor_unitario === 0
-    );
-
-    const total = form.items_data.reduce(
+    const totalScanned = form.items_data.reduce(
       (sum, item) => sum + (Number(item.valor_unitario) || 0),
       0
     );
+    
+    const totalManual = form.manual_items.reduce(
+      (sum, item) => sum + (Number(item.valor_unitario) * item.cantidad || 0),
+      0
+    );
 
-    return total > 0;
+    return (totalScanned + totalManual) > 0;
   };
 
   const handleAgregarPorCodigo = async () => {
@@ -372,6 +390,12 @@ export default function EnvioFormModal({ open, onClose, onSubmit, editing }) {
       if (inputRef.current) {
         inputRef.current.focus();
       }
+      return;
+    }
+
+    // Si está en modo manual, no debería usarse el scanner normalmente, pero por si acaso
+    if (modoManual) {
+      setErrorScan("Desactive el modo manual para escanear unidades");
       return;
     }
 
@@ -491,6 +515,62 @@ export default function EnvioFormModal({ open, onClose, onSubmit, editing }) {
     }
   };
 
+  const fetchCargas = async () => {
+    if (!form.cliente) return;
+    setLoadingCargas(true);
+    try {
+      const data = await getCargasPorCliente(form.cliente);
+      setCargasDisponibles(data);
+    } catch (err) {
+      console.error("Error al cargar cargas:", err);
+    } finally {
+      setLoadingCargas(false);
+    }
+  };
+
+  useEffect(() => {
+    if (modoManual && form.cliente) {
+      fetchCargas();
+    }
+  }, [modoManual, form.cliente]);
+
+  const handleManualQtyChange = (cargaId, productoId, qty, valor_unitario, productoNombre) => {
+    const numQty = parseInt(qty) || 0;
+    
+    setForm(prev => {
+      const otherManualItems = prev.manual_items.filter(
+        item => !(item.carga_id === cargaId && item.producto_id === productoId)
+      );
+      
+      if (numQty <= 0) {
+        return { ...prev, manual_items: otherManualItems };
+      }
+      
+      return {
+        ...prev,
+        manual_items: [
+          ...otherManualItems,
+          { 
+            carga_id: cargaId, 
+            producto_id: productoId, 
+            cantidad: numQty, 
+            valor_unitario: Number(valor_unitario) || 0,
+            producto_nombre: productoNombre 
+          }
+        ]
+      };
+    });
+  };
+
+  const handleRemoverManualItem = (cargaId, productoId) => {
+    setForm(prev => ({
+      ...prev,
+      manual_items: prev.manual_items.filter(
+        item => !(item.carga_id === cargaId && item.producto_id === productoId)
+      )
+    }));
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
 
@@ -509,8 +589,8 @@ export default function EnvioFormModal({ open, onClose, onSubmit, editing }) {
       (item) => item.unidad_codigo && item.unidad_codigo.trim() !== ""
     );
 
-    if (itemsValidos.length === 0) {
-      setErrorScan("Debe agregar al menos un item válido con código de barras");
+    if (itemsValidos.length === 0 && form.manual_items.length === 0) {
+      setErrorScan("Debe agregar al menos un item al envío (escaneado o manual)");
       return;
     }
 
@@ -545,6 +625,12 @@ export default function EnvioFormModal({ open, onClose, onSubmit, editing }) {
       placa_vehiculo: form.placa_vehiculo,
       origen: form.origen,
       items_data: payloadItems,
+      manual_items: form.manual_items.map(m => ({
+        carga_id: m.carga_id,
+        producto_id: m.producto_id,
+        cantidad: m.cantidad,
+        valor_unitario: m.valor_unitario
+      }))
     };
 
     // **NUEVO: Agregar una confirmación visual antes de enviar**
@@ -573,10 +659,16 @@ export default function EnvioFormModal({ open, onClose, onSubmit, editing }) {
   const selectedClient = clientOptions.find(
     (opt) => opt.value === form.cliente // ← Buscar por ID, no por objeto
   );
-  const total = form.items_data.reduce(
+  const itemsTotal = form.items_data.reduce(
     (sum, item) => sum + (Number(item.valor_unitario) || 0),
     0
   );
+  const manualTotal = form.manual_items.reduce(
+    (sum, item) => sum + (Number(item.valor_unitario) * item.cantidad || 0),
+    0
+  );
+  
+  const total = itemsTotal + manualTotal;
 
   const grupos = agruparItems(form.items_data);
 
@@ -669,93 +761,267 @@ export default function EnvioFormModal({ open, onClose, onSubmit, editing }) {
           <div className="flex justify-between items-center mb-4">
             <h3 className="text-lg font-medium text-gray-900">Agregar items</h3>
 
-            {form.items_data.length > 0 && (
-              <button
-                type="button"
-                onClick={() => setVistaAgrupada(!vistaAgrupada)}
-                className="flex items-center gap-2 px-3 py-1.5 text-sm text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors">
-                <RiExpandUpDownLine />
-                {vistaAgrupada ? "Vista individual" : "Vista agrupada"}
-              </button>
-            )}
+            <div className="flex items-center gap-2">
+              {isAdmin && (
+                <button
+                  type="button"
+                  onClick={() => setModoManual(!modoManual)}
+                  className={`flex items-center gap-2 px-3 py-1.5 text-sm rounded-lg transition-all shadow-sm ${
+                    modoManual 
+                    ? "bg-blue-600 text-white border border-blue-700" 
+                    : "bg-gray-100 text-gray-700 border border-gray-200 hover:bg-gray-200"
+                  }`}
+                >
+                  <RiSettings4Line className={modoManual ? "animate-spin-slow" : ""} />
+                  {modoManual ? "Modo Manual Activado" : "Activar Selección Manual"}
+                </button>
+              )}
+
+              {form.items_data.length > 0 && !modoManual && (
+                <button
+                  type="button"
+                  onClick={() => setVistaAgrupada(!vistaAgrupada)}
+                  className="flex items-center gap-2 px-3 py-1.5 text-sm text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors">
+                  <RiExpandUpDownLine />
+                  {vistaAgrupada ? "Vista individual" : "Vista agrupada"}
+                </button>
+              )}
+            </div>
           </div>
 
-          {/* Indicador de cambios no guardados */}
-          {hasChanges && (
-            <div className="mb-3 p-2 bg-yellow-50 border border-yellow-200 rounded">
-              <div className="flex items-center gap-2 text-yellow-700 text-sm">
-                <RiErrorWarningLine />
-                <span>Tiene cambios sin guardar en los items</span>
+
+          {modoManual ? (
+            /* ==========================================
+               UI MODO MANUAL (ADMIN ONLY)
+               ========================================== */
+            <div className="bg-blue-50 border border-blue-100 p-5 rounded-xl mb-6 shadow-sm">
+              <div className="flex justify-between items-center mb-4">
+                <h4 className="font-semibold text-blue-900 flex items-center gap-2">
+                   <RiListCheck className="text-blue-600" /> Selección masiva por carga y producto
+                </h4>
+                <span className="px-2 py-0.5 bg-blue-100 text-blue-700 text-[10px] font-bold uppercase rounded-full">
+                  Administrador
+                </span>
+              </div>
+
+              <div className="mb-5">
+                <label className="block text-xs font-bold text-blue-700 uppercase tracking-wider mb-2">
+                  1. Seleccione la remisión de la carga
+                </label>
+                <Select
+                  isLoading={loadingCargas}
+                  options={cargasDisponibles.map(c => ({ 
+                    value: c.carga_id, 
+                    label: `Remisión: ${c.remision} - ${c.proveedor}`,
+                    data: c
+                  }))}
+                  onChange={(selected) => setCargaSeleccionada(selected ? selected.data : null)}
+                  placeholder="Buscar carga para seleccionar productos..."
+                  className="text-sm shadow-sm"
+                  styles={{
+                    control: (base) => ({ ...base, borderRadius: '8px', border: '1px solid #bfdbfe' })
+                  }}
+                />
+              </div>
+
+              {cargaSeleccionada && (
+                <div className="space-y-4 animate-in fade-in slide-in-from-top-2">
+                  <label className="block text-xs font-bold text-blue-700 uppercase tracking-wider">
+                    2. Especifique las cantidades
+                  </label>
+                  <div className="bg-white border border-blue-200 rounded-xl overflow-hidden shadow-sm">
+                    <table className="min-w-full divide-y divide-gray-100">
+                      <thead className="bg-gray-50/80">
+                        <tr>
+                          <th className="px-4 py-3 text-left text-[10px] font-bold text-gray-500 uppercase">Producto</th>
+                          <th className="px-4 py-3 text-center text-[10px] font-bold text-gray-500 uppercase">Disponible</th>
+                          <th className="px-4 py-3 text-center text-[10px] font-bold text-gray-500 uppercase">Cantidad</th>
+                          <th className="px-4 py-3 text-right text-[10px] font-bold text-gray-500 uppercase">Valor Unit.</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-100">
+                        {/* Agrupar unidades por producto */}
+                        {Object.values(
+                          cargaSeleccionada.unidades_disponibles.reduce((acc, u) => {
+                            if (!acc[u.producto_id]) {
+                              acc[u.producto_id] = { ...u, cant_disp: 0 };
+                            }
+                            acc[u.producto_id].cant_disp += 1;
+                            return acc;
+                          }, {})
+                        ).map((prod) => {
+                          const itemManual = form.manual_items.find(
+                            mi => mi.carga_id === cargaSeleccionada.carga_id && mi.producto_id === prod.producto_id
+                          );
+                          
+                          return (
+                            <tr key={prod.producto_id} className="hover:bg-blue-50/30 transition-colors">
+                              <td className="px-4 py-3 text-sm">
+                                <div className="font-semibold text-gray-900">{prod.producto}</div>
+                                <div className="text-[11px] text-gray-500 font-mono">{prod.sku}</div>
+                              </td>
+                              <td className="px-4 py-3 text-center">
+                                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                  {prod.cant_disp}
+                                </span>
+                              </td>
+                              <td className="px-4 py-3 text-center">
+                                <input
+                                  type="number"
+                                  min="0"
+                                  max={prod.cant_disp}
+                                  value={itemManual?.cantidad || ""}
+                                  onChange={(e) => handleManualQtyChange(
+                                    cargaSeleccionada.carga_id, 
+                                    prod.producto_id, 
+                                    e.target.value,
+                                    itemManual?.valor_unitario || 0,
+                                    prod.producto
+                                  )}
+                                  className="w-20 px-3 py-1.5 border border-gray-300 rounded-lg text-sm text-center focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+                                  placeholder="0"
+                                />
+                              </td>
+                              <td className="px-4 py-3 text-right">
+                                <div className="relative inline-block w-28">
+                                  <div className="absolute inset-y-0 left-0 pl-2 flex items-center pointer-events-none">
+                                    <span className="text-gray-500 text-xs">$</span>
+                                  </div>
+                                  <input
+                                    type="number"
+                                    min="0"
+                                    value={itemManual?.valor_unitario || ""}
+                                    onChange={(e) => handleManualQtyChange(
+                                      cargaSeleccionada.carga_id, 
+                                      prod.producto_id, 
+                                      itemManual?.cantidad || 0,
+                                      e.target.value,
+                                      prod.producto
+                                    )}
+                                    className="w-full pl-6 pr-2 py-1.5 border border-gray-300 rounded-lg text-sm text-right focus:ring-2 focus:ring-blue-500"
+                                    placeholder="0.00"
+                                  />
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+              
+              {!cargaSeleccionada && (
+                <div className="text-center py-8 border-2 border-dashed border-blue-200 rounded-xl bg-blue-50/50">
+                   <p className="text-blue-500 text-sm italic">
+                     Busque una carga para ver los productos disponibles y asignar cantidades.
+                   </p>
+                </div>
+              )}
+            </div>
+          ) : (
+            /* ==========================================
+               UI MODO ESCÁNER (BARCODE)
+               ========================================== */
+            <div className="bg-gray-50 p-4 rounded-lg mb-4">
+              <div className="flex gap-3">
+                <div className="flex-1">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Código de barras
+                    {loadingValidation && (
+                      <span className="ml-2 text-blue-600 text-xs">
+                        Validando...
+                      </span>
+                    )}
+                  </label>
+                  <div className="relative">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                      <RiBarcodeLine className="h-5 w-5 text-gray-400" />
+                    </div>
+                    <input
+                      ref={inputRef}
+                      value={codigoBarras}
+                      onChange={(e) => {
+                        setCodigoBarras(e.target.value);
+                        setErrorScan("");
+                        setDuplicateError("");
+                      }}
+                      onKeyPress={handleKeyPress}
+                      className={`w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-colors ${
+                        recentlyAdded ? "ring-2 ring-green-500" : ""
+                      }`}
+                      placeholder="Escanear código de barras y presionar Enter"
+                      disabled={loadingValidation || !form.cliente}
+                    />
+                  </div>
+                  {duplicateError && (
+                    <span className="text-red-500 text-xs mt-1 block animate-pulse">
+                      {duplicateError}
+                    </span>
+                  )}
+                  {errorScan && (
+                    <span className="text-red-500 text-xs mt-1 block">
+                      {errorScan}
+                    </span>
+                  )}
+                </div>
+
+                <div className="flex items-end">
+                  <button
+                    type="button"
+                    onClick={handleAgregarPorCodigo}
+                    disabled={
+                      !codigoBarras.trim() || loadingValidation || !form.cliente
+                    }
+                    className="flex items-center gap-2 px-4 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
+                    {loadingValidation ? (
+                      <>
+                        <RiLoader4Line className="animate-spin" />
+                        Validando...
+                      </>
+                    ) : (
+                      <>
+                        <RiAddLine />
+                        Agregar
+                      </>
+                    )}
+                  </button>
+                </div>
               </div>
             </div>
           )}
 
-          <div className="bg-gray-50 p-4 rounded-lg mb-4">
-            <div className="flex gap-3">
-              <div className="flex-1">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Código de barras
-                  {loadingValidation && (
-                    <span className="ml-2 text-blue-600 text-xs">
-                      Validando...
-                    </span>
-                  )}
-                </label>
-                <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <RiBarcodeLine className="h-5 w-5 text-gray-400" />
-                  </div>
-                  <input
-                    ref={inputRef}
-                    value={codigoBarras}
-                    onChange={(e) => {
-                      setCodigoBarras(e.target.value);
-                      setErrorScan("");
-                      setDuplicateError("");
-                    }}
-                    onKeyPress={handleKeyPress}
-                    className={`w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-colors ${
-                      recentlyAdded ? "ring-2 ring-green-500" : ""
-                    }`}
-                    placeholder="Escanear código de barras y presionar Enter"
-                    disabled={loadingValidation || !form.cliente}
-                  />
-                </div>
-                {duplicateError && (
-                  <span className="text-red-500 text-xs mt-1 block animate-pulse">
-                    {duplicateError}
-                  </span>
-                )}
-                {errorScan && (
-                  <span className="text-red-500 text-xs mt-1 block">
-                    {errorScan}
-                  </span>
-                )}
-              </div>
-
-              <div className="flex items-end">
-                <button
-                  type="button"
-                  onClick={handleAgregarPorCodigo}
-                  disabled={
-                    !codigoBarras.trim() || loadingValidation || !form.cliente
-                  }
-                  className="flex items-center gap-2 px-4 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
-                  {loadingValidation ? (
-                    <>
-                      <RiLoader4Line className="animate-spin" />
-                      Validando...
-                    </>
-                  ) : (
-                    <>
-                      <RiAddLine />
-                      Agregar
-                    </>
-                  )}
-                </button>
-              </div>
+          {/* Lista de Items Agregados (Manuales) */}
+          {form.manual_items.length > 0 && (
+            <div className="mb-6 animate-in fade-in duration-500">
+               <h4 className="font-bold text-gray-700 text-sm mb-3 uppercase tracking-wider flex items-center gap-2">
+                 <RiListCheck className="text-blue-600" /> Items seleccionados manualmente:
+               </h4>
+               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                 {form.manual_items.map((item, idx) => (
+                   <div key={`${item.carga_id}-${item.producto_id}`} className="bg-blue-50 border border-blue-100 p-3 rounded-xl flex justify-between items-center shadow-sm">
+                     <div className="flex-1">
+                        <div className="font-bold text-blue-900 text-sm">{item.producto_nombre}</div>
+                        <div className="text-[11px] text-blue-600 font-medium">
+                          Rem: {cargasDisponibles.find(c => c.carga_id === item.carga_id)?.remision || item.carga_id} - Qty: {item.cantidad}
+                        </div>
+                        <div className="text-[11px] text-blue-700 font-bold">
+                          ${(item.cantidad * item.valor_unitario).toFixed(2)}
+                        </div>
+                     </div>
+                     <button 
+                       type="button"
+                       onClick={() => handleRemoverManualItem(item.carga_id, item.producto_id)}
+                       className="p-1.5 text-blue-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                     >
+                        <RiCloseLine className="h-5 w-5" />
+                     </button>
+                   </div>
+                 ))}
+               </div>
             </div>
-          </div>
+          )}
 
           {form.items_data.length > 0 && (
             <div className="space-y-3">
@@ -952,7 +1218,7 @@ export default function EnvioFormModal({ open, onClose, onSubmit, editing }) {
           </button>
           <button
             type="submit"
-            disabled={enviosLoading || form.items_data.length === 0}
+            disabled={enviosLoading || (form.items_data.length === 0 && form.manual_items.length === 0)}
             className="flex items-center gap-2 px-5 py-2.5 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
             {enviosLoading ? (
               <>

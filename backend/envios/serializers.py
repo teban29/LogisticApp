@@ -44,6 +44,12 @@ class EnvioSerializer(serializers.ModelSerializer):
         required=False,
         help_text="Lista de items con formato: [{'unidad_codigo': 'CODIGO123', 'valor_unitario': 100.00}]"
     )
+    manual_items = serializers.ListField(
+        child=serializers.DictField(),
+        write_only=True,
+        required=False,
+        help_text="Lista de items manuales: [{'carga_id': 1, 'producto_id': 1, 'cantidad': 5, 'valor_unitario': 100.00}]"
+    )
     
     items_agrupados = serializers.SerializerMethodField()
     
@@ -52,7 +58,7 @@ class EnvioSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'numero_guia', 'cliente', 'cliente_nombre', 'conductor', 
             'placa_vehiculo', 'origen', 'valor_total', 'estado', 'items', 
-            'items_data', 'created_at', 'updated_at', 'items_agrupados'
+            'items_data', 'manual_items', 'created_at', 'updated_at', 'items_agrupados'
         ]
         read_only_fields = ['numero_guia', 'valor_total', 'created_at', 'updated_at']
 
@@ -180,12 +186,16 @@ class EnvioSerializer(serializers.ModelSerializer):
     @transaction.atomic
     def create(self, validated_data):
         items_data = validated_data.pop('items_data', [])
+        manual_items = validated_data.pop('manual_items', [])
+        
         envio = Envio.objects.create(**validated_data)
         
         if items_data:
             self._crear_items(envio, items_data)
-            # No cambiar estado aquí, se hará en la señal post_save
         
+        if manual_items:
+            self._procesar_items_manuales(envio, manual_items)
+            
         return envio
     
     @transaction.atomic
@@ -194,14 +204,15 @@ class EnvioSerializer(serializers.ModelSerializer):
     @transaction.atomic
     def update(self, instance, validated_data):
         items_data = validated_data.pop('items_data', None)
+        manual_items = validated_data.pop('manual_items', None)
         
         # Actualizar campos básicos
         for attr, value in validated_data.items():
             setattr(instance, attr, value)
         instance.save()
         
-        # Si se proporcionan items, reemplazar todos los existentes
-        if items_data is not None:
+        # Si se proporcionan items (escaneados o manuales), reemplazar todos los existentes
+        if items_data is not None or manual_items is not None:
             # Guardar IDs de unidades actuales para liberarlas
             unidades_actuales = list(instance.items.values_list('unidad_id', flat=True))
             
@@ -211,9 +222,13 @@ class EnvioSerializer(serializers.ModelSerializer):
             # Liberar unidades anteriores
             Unidad.objects.filter(id__in=unidades_actuales).update(estado='disponible')
             
-            # Crear nuevos items si los hay
+            # Crear nuevos items si los hay (escaneados)
             if items_data:
                 self._crear_items(instance, items_data)
+            
+            # Crear nuevos items si los hay (manuales)
+            if manual_items:
+                self._procesar_items_manuales(instance, manual_items)
         
         # IMPORTANTE: Forzar actualización del valor total
         print(f"DEBUG - Llamando a actualizar_valor_total para envío {instance.id}")
@@ -284,6 +299,62 @@ class EnvioSerializer(serializers.ModelSerializer):
         if items_a_crear:
             EnvioItem.objects.bulk_create(items_a_crear)
             Unidad.objects.filter(id__in=unidades_nuevas_ids).update(estado='reservada')
+            
+            # Forzar actualización de valor total ya que bulk_create no dispara señales
+            envio.actualizar_valor_total()
+            
+            if envio.estado == 'borrador':
+                envio.estado = 'pendiente'
+                envio.save(update_fields=['estado'])
+
+    def _procesar_items_manuales(self, envio, manual_items):
+        """
+        Procesa items seleccionados manualmente (carga, producto, cantidad).
+        Selecciona las primeras 'n' unidades disponibles que coincidan.
+        """
+        from django.db.models import Q
+        
+        items_a_crear = []
+        unidades_a_reservar_ids = []
+        
+        for manual_item in manual_items:
+            carga_id = manual_item.get('carga_id')
+            producto_id = manual_item.get('producto_id')
+            cantidad = int(manual_item.get('cantidad', 0))
+            valor_unitario = manual_item.get('valor_unitario', 0)
+            
+            if cantidad <= 0:
+                continue
+                
+            # Buscar unidades disponibles para esta carga y producto
+            unidades_disponibles = Unidad.objects.filter(
+                carga_item__carga_id=carga_id,
+                carga_item__producto_id=producto_id,
+                estado='disponible'
+            ).order_by('id')[:cantidad]
+            
+            unidades_list = list(unidades_disponibles)
+            
+            if len(unidades_list) < cantidad:
+                raise serializers.ValidationError(
+                    f"No hay suficientes unidades disponibles para el producto (ID: {producto_id}) en la carga (ID: {carga_id}). "
+                    f"Solicitadas: {cantidad}, Disponibles: {len(unidades_list)}"
+                )
+                
+            for unidad in unidades_list:
+                items_a_crear.append(EnvioItem(
+                    envio=envio,
+                    unidad=unidad,
+                    valor_unitario=valor_unitario
+                ))
+                unidades_a_reservar_ids.append(unidad.id)
+        
+        if items_a_crear:
+            EnvioItem.objects.bulk_create(items_a_crear)
+            Unidad.objects.filter(id__in=unidades_a_reservar_ids).update(estado='reservada')
+            
+            # Forzar actualización de valor total ya que bulk_create no dispara señales
+            envio.actualizar_valor_total()
             
             if envio.estado == 'borrador':
                 envio.estado = 'pendiente'
