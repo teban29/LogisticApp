@@ -930,11 +930,9 @@ export default function EnvioFormModal({ open, onClose, onSubmit, editing }) {
                 <div className="flex-1">
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Código de barras
-                    {loadingValidation && (
-                      <span className="ml-2 text-blue-600 text-xs">
-                        Validando...
-                      </span>
-                    )}
+                    <span className={`ml-2 text-blue-600 text-xs ${loadingValidation ? 'inline-block' : 'hidden'}`}>
+                      Validando...
+                    </span>
                   </label>
                   <div className="relative">
                     <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -956,16 +954,18 @@ export default function EnvioFormModal({ open, onClose, onSubmit, editing }) {
                       disabled={loadingValidation || !form.cliente}
                     />
                   </div>
-                  {duplicateError && (
-                    <span className="text-red-500 text-xs mt-1 block animate-pulse">
-                      {duplicateError}
-                    </span>
-                  )}
-                  {errorScan && (
-                    <span className="text-red-500 text-xs mt-1 block">
-                      {errorScan}
-                    </span>
-                  )}
+                  <div className="min-h-[20px] mt-1">
+                    {duplicateError && (
+                      <span className="text-red-500 text-xs block animate-pulse">
+                        {duplicateError}
+                      </span>
+                    )}
+                    {errorScan && (
+                      <span className="text-red-500 text-xs block">
+                        {errorScan}
+                      </span>
+                    )}
+                  </div>
                 </div>
 
                 <div className="flex items-end">
