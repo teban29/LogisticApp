@@ -154,13 +154,19 @@ class EnvioSerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError("Cada item debe tener unidad_codigo")
             if 'valor_unitario' not in item:
                 raise serializers.ValidationError("Cada item debe tener valor_unitario")
-            try:
-                # Convertir a float para validación
-                valor = float(item['valor_unitario'])
-                if valor < 0:
-                    raise serializers.ValidationError("valor_unitario no puede ser negativo")
-            except (ValueError, TypeError):
-                raise serializers.ValidationError("valor_unitario debe ser un número válido")
+            
+            valor_unitario = item.get('valor_unitario')
+            if valor_unitario is not None and valor_unitario != "":
+                try:
+                    # Convertir a float para validación
+                    valor = float(valor_unitario)
+                    if valor < 0:
+                        raise serializers.ValidationError("valor_unitario no puede ser negativo")
+                    item['valor_unitario'] = valor
+                except (ValueError, TypeError):
+                    raise serializers.ValidationError("valor_unitario debe ser un número válido o nulo")
+            else:
+                item['valor_unitario'] = None
         
         # Validación adicional para usuarios cliente
         if request and request.user.rol == 'cliente':
@@ -321,7 +327,9 @@ class EnvioSerializer(serializers.ModelSerializer):
             carga_id = manual_item.get('carga_id')
             producto_id = manual_item.get('producto_id')
             cantidad = int(manual_item.get('cantidad', 0))
-            valor_unitario = manual_item.get('valor_unitario', 0)
+            valor_unitario = manual_item.get('valor_unitario')
+            if valor_unitario == "":
+                valor_unitario = None
             
             if cantidad <= 0:
                 continue
