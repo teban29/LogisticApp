@@ -13,7 +13,9 @@ class EnvioItem(models.Model):
     valor_unitario = models.DecimalField(
         max_digits=10, 
         decimal_places=2, 
-        validators=[MinValueValidator(0)]
+        validators=[MinValueValidator(0)],
+        null=True,
+        blank=True
     )
     created_at = models.DateTimeField(auto_now_add=True)
     
@@ -94,7 +96,7 @@ class Envio(models.Model):
         """Actualiza el valor total sumando todos los items"""
         # OPCIÓN 2: Iterar y sumar
         items_list = list(self.items.all())
-        calculated_total = sum(float(item.valor_unitario) for item in items_list)
+        calculated_total = sum(float(item.valor_unitario) for item in items_list if item.valor_unitario is not None)
         
         # Usar el valor calculado
         self.valor_total = calculated_total

@@ -167,7 +167,7 @@ export default function EnvioFormModal({ open, onClose, onSubmit, editing }) {
           const itemTransformado = {
             id: item.id,
             unidad_codigo: codigoBarra,
-            valor_unitario: Number(item.valor_unitario) || 0,
+            valor_unitario: item.valor_unitario !== null ? Number(item.valor_unitario) : "",
             producto_nombre: productoNombre,
             remesa: remesa,
             temporal_id: item.id || `existing_${index}_${Date.now()}`,
@@ -186,6 +186,7 @@ export default function EnvioFormModal({ open, onClose, onSubmit, editing }) {
         placa_vehiculo: editing.placa_vehiculo || "",
         origen: editing.origen || "",
         items_data: itemsTransformados,
+        manual_items: [],
       });
     } else {
       setForm(initialForm);
@@ -228,7 +229,7 @@ export default function EnvioFormModal({ open, onClose, onSubmit, editing }) {
                   return {
                     id: item.id,
                     unidad_codigo: codigoBarra,
-                    valor_unitario: Number(item.valor_unitario) || 0,
+                    valor_unitario: item.valor_unitario !== null ? Number(item.valor_unitario) : "",
                     producto_nombre: productoNombre,
                     remesa: remesa,
                     temporal_id: item.id || `existing_${item.id}`,
@@ -238,6 +239,7 @@ export default function EnvioFormModal({ open, onClose, onSubmit, editing }) {
                   (item) =>
                     item.unidad_codigo && item.unidad_codigo.trim() !== ""
                 ),
+              manual_items: [],
             }
           : initialForm;
 
@@ -306,7 +308,7 @@ export default function EnvioFormModal({ open, onClose, onSubmit, editing }) {
     const newItems = [...form.items_data];
     newItems[index] = {
       ...newItems[index],
-      valor_unitario: Number(value) || 0,
+      valor_unitario: value === "" ? "" : Number(value),
     };
     setForm((prev) => ({ ...prev, items_data: newItems }));
   };
@@ -317,7 +319,7 @@ export default function EnvioFormModal({ open, onClose, onSubmit, editing }) {
     if (grupoIndex < 0 || grupoIndex >= grupos.length) return;
 
     const grupo = grupos[grupoIndex];
-    const nuevoValor = Number(valorUnitario) || 0;
+    const nuevoValor = valorUnitario === "" ? "" : Number(valorUnitario);
 
 
     // Actualizar todos los items del grupo
@@ -349,17 +351,7 @@ export default function EnvioFormModal({ open, onClose, onSubmit, editing }) {
   };
 
   const validarItemsAntesDeEnviar = () => {
-    const totalScanned = form.items_data.reduce(
-      (sum, item) => sum + (Number(item.valor_unitario) || 0),
-      0
-    );
-    
-    const totalManual = form.manual_items.reduce(
-      (sum, item) => sum + (Number(item.valor_unitario) * item.cantidad || 0),
-      0
-    );
-
-    return (totalScanned + totalManual) > 0;
+    return true;
   };
 
   const handleAgregarPorCodigo = async () => {
@@ -441,7 +433,7 @@ export default function EnvioFormModal({ open, onClose, onSubmit, editing }) {
           ...prev.items_data,
           {
             unidad_codigo: codigoBarras,
-            valor_unitario: precioReferencia,
+            valor_unitario: precioReferencia !== null ? precioReferencia : "",
             producto_nombre: productoNombre,
             remesa: remesa,
             temporal_id: Date.now() + Math.random(),
@@ -554,7 +546,7 @@ export default function EnvioFormModal({ open, onClose, onSubmit, editing }) {
             carga_id: cargaId, 
             producto_id: productoId, 
             cantidad: numQty, 
-            valor_unitario: Number(valor_unitario) || 0,
+            valor_unitario: valor_unitario === "" ? "" : Number(valor_unitario),
             producto_nombre: productoNombre 
           }
         ]
@@ -600,15 +592,19 @@ export default function EnvioFormModal({ open, onClose, onSubmit, editing }) {
       return;
     }
 
-    // **CORRECCIÓN IMPORTANTE:** Asegurar que todos los valores sean números válidos
+    // **CORRECCIÓN IMPORTANTE:** Asegurar que todos los valores sean números válidos o null
     const payloadItems = itemsValidos.map((item) => {
-      // Asegurar que valor_unitario sea un número válido
-      const valorUnitario = Number(item.valor_unitario);
+      let valorUnitario = item.valor_unitario;
+      if (valorUnitario === "" || valorUnitario === null || valorUnitario === undefined) {
+         valorUnitario = null;
+      } else {
+         valorUnitario = Number(valorUnitario);
+         if (isNaN(valorUnitario) || !isFinite(valorUnitario)) valorUnitario = null;
+      }
 
       return {
         unidad_codigo: item.unidad_codigo.trim(),
-        valor_unitario:
-          !isNaN(valorUnitario) && isFinite(valorUnitario) ? valorUnitario : 0,
+        valor_unitario: valorUnitario,
       };
     });
 
@@ -616,7 +612,7 @@ export default function EnvioFormModal({ open, onClose, onSubmit, editing }) {
     console.log("DEBUG - Payload items enviados:", payloadItems);
     console.log(
       "DEBUG - Valor total calculado:",
-      payloadItems.reduce((sum, item) => sum + item.valor_unitario, 0)
+      payloadItems.reduce((sum, item) => sum + (item.valor_unitario || 0), 0)
     );
 
     const payload = {
@@ -625,12 +621,17 @@ export default function EnvioFormModal({ open, onClose, onSubmit, editing }) {
       placa_vehiculo: form.placa_vehiculo,
       origen: form.origen,
       items_data: payloadItems,
-      manual_items: form.manual_items.map(m => ({
-        carga_id: m.carga_id,
-        producto_id: m.producto_id,
-        cantidad: m.cantidad,
-        valor_unitario: m.valor_unitario
-      }))
+      manual_items: form.manual_items.map(m => {
+        let val = m.valor_unitario;
+        if (val === "" || val === null || val === undefined) val = null;
+        else val = Number(val);
+        return {
+          carga_id: m.carga_id,
+          producto_id: m.producto_id,
+          cantidad: m.cantidad,
+          valor_unitario: isNaN(val) ? null : val
+        }
+      })
     };
 
     // **NUEVO: Agregar una confirmación visual antes de enviar**
