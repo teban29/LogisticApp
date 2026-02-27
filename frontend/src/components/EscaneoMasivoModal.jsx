@@ -471,11 +471,9 @@ export default function EscaneoMasivoModal({
           <div className="bg-gray-50 p-4 rounded-lg mb-4">
             <label className="block text-sm font-medium text-gray-700 mb-2">
               Código de barras (presione Enter para agregar)
-              {loadingValidacion && (
-                <span className="ml-2 text-blue-600 text-xs">
-                  Obteniendo información...
-                </span>
-              )}
+              <span className={`ml-2 text-blue-600 text-xs ${loadingValidacion ? 'inline-block' : 'hidden'}`}>
+                Obteniendo información...
+              </span>
             </label>
             <div className="flex gap-3">
               <div className="flex-1">
@@ -507,20 +505,22 @@ export default function EscaneoMasivoModal({
                     disabled={loading || loadingValidacion}
                   />
                 </div>
-                {duplicateError && (
-                  <span
-                    id="duplicate-error"
-                    className="text-red-500 text-xs mt-1 block animate-pulse">
-                    {duplicateError}
-                  </span>
-                )}
-                {errorValidacion && (
-                  <span
-                    id="error-message"
-                    className="text-red-500 text-xs mt-1 block">
-                    {errorValidacion}
-                  </span>
-                )}
+                <div className="min-h-[20px]">
+                  {duplicateError && (
+                    <span
+                      id="duplicate-error"
+                      className="text-red-500 text-xs mt-1 block animate-pulse">
+                      {duplicateError}
+                    </span>
+                  )}
+                  {errorValidacion && (
+                    <span
+                      id="error-message"
+                      className="text-red-500 text-xs mt-1 block">
+                      {errorValidacion}
+                    </span>
+                  )}
+                </div>
               </div>
 
               <div className="flex items-end">
