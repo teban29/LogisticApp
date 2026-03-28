@@ -1,6 +1,6 @@
-import { useState, useEffect } from "react";
-import { useEnvios } from "../hooks/useEnvios";
+import { useState, useEffect, useRef } from "react";
 import Modal from "./Modal";
+import api from "../api/axios";
 import {
   RiQrScanLine,
   RiCheckboxCircleLine,
@@ -14,27 +14,38 @@ import {
   RiArrowLeftLine,
 } from "react-icons/ri";
 
+// Llama directamente a la API sin pasar por el hook global (evita
+// interferencia con el loading/error del listado principal de envíos)
+const api_escanear = (envioId, codigoBarra) =>
+  api.post(`/api/envios/${envioId}/escanear-item/`, {
+    codigo_barra: codigoBarra,
+    escaneado_por: "Sistema",
+  });
+
+const api_estadoVerificacion = (envioId) =>
+  api.get(`/api/envios/${envioId}/estado-verificacion/`);
+
+const api_itemsPendientes = (envioId) =>
+  api.get(`/api/envios/${envioId}/items-pendientes/`);
+
+const api_forzarCompletar = (envioId) =>
+  api.post(`/api/envios/${envioId}/forzar-completar-entrega/`);
+
 const VerificacionEntregaModal = ({
   envio,
   isOpen,
   onClose,
   onEntregaCompletada,
 }) => {
-  const {
-    escanearItemVerificacion,
-    obtenerVerificacionEstado,
-    obtenerItemsPendientesVerificacion,
-    forzarEntregaCompletada,
-    loading,
-    error,
-    clearError,
-  } = useEnvios();
-
   const [estado, setEstado] = useState(null);
   const [itemsPendientes, setItemsPendientes] = useState([]);
   const [codigoEscaneado, setCodigoEscaneado] = useState("");
   const [mensaje, setMensaje] = useState("");
   const [tipoMensaje, setTipoMensaje] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  const inputRef = useRef(null);
+  const mensajeTimeoutRef = useRef(null);
 
   useEffect(() => {
     if (isOpen && envio) {
@@ -42,61 +53,93 @@ const VerificacionEntregaModal = ({
       setCodigoEscaneado("");
       setMensaje("");
     }
+    return () => {
+      if (mensajeTimeoutRef.current) clearTimeout(mensajeTimeoutRef.current);
+    };
   }, [isOpen, envio]);
 
+  // Auto-focus input cuando abre
   useEffect(() => {
-    if (error) {
-      mostrarMensaje(error, "error");
-      clearError();
+    if (isOpen && inputRef.current) {
+      setTimeout(() => inputRef.current?.focus(), 150);
     }
-  }, [error]);
+  }, [isOpen]);
 
   const cargarDatosVerificacion = async () => {
+    if (!envio?.id) return;
     try {
-      const [estadoData, pendientesData] = await Promise.all([
-        obtenerVerificacionEstado(envio.id),
-        obtenerItemsPendientesVerificacion(envio.id),
+      const [estadoRes, pendientesRes] = await Promise.all([
+        api_estadoVerificacion(envio.id),
+        api_itemsPendientes(envio.id),
       ]);
-
-      setEstado(estadoData);
-      setItemsPendientes(pendientesData.pendientes || []);
+      setEstado(estadoRes.data);
+      setItemsPendientes(pendientesRes.data.pendientes || []);
     } catch (err) {
-      // El error ya es manejado por el hook
+      const msg =
+        err.response?.data?.error ||
+        err.response?.data?.detail ||
+        "Error al cargar los datos de verificación.";
+      mostrarMensaje(msg, "error");
     }
   };
 
   const mostrarMensaje = (texto, tipo = "info") => {
     setMensaje(texto);
     setTipoMensaje(tipo);
-    setTimeout(() => setMensaje(""), 3000);
+    if (mensajeTimeoutRef.current) clearTimeout(mensajeTimeoutRef.current);
+    mensajeTimeoutRef.current = setTimeout(() => setMensaje(""), 4000);
   };
 
   const handleEscanear = async () => {
-    if (!codigoEscaneado.trim()) return;
+    const codigo = codigoEscaneado.trim();
+    if (!codigo) return;
+
+    setLoading(true);
+    setCodigoEscaneado("");
 
     try {
-      const resultado = await escanearItemVerificacion(
-        envio.id,
-        codigoEscaneado.trim()
-      );
+      const res = await api_escanear(envio.id, codigo);
+      const resultado = res.data;
 
       if (resultado.completado) {
-        mostrarMensaje(
-          "¡Entrega completada! Todos los items verificados",
-          "success"
-        );
+        mostrarMensaje("¡Entrega completada! Todos los items verificados", "success");
+        await cargarDatosVerificacion();
         setTimeout(() => {
-          onEntregaCompletada();
+          onEntregaCompletada?.();
           onClose();
         }, 1500);
+      } else if (resultado.warning) {
+        mostrarMensaje(resultado.warning, "info");
+        await cargarDatosVerificacion();
       } else {
-        mostrarMensaje("✓ Item escaneado correctamente", "success");
+        const pct = resultado.porcentaje !== undefined
+          ? ` (${Math.round(resultado.porcentaje)}% completado)`
+          : "";
+        mostrarMensaje(`✓ Item escaneado correctamente${pct}`, "success");
         await cargarDatosVerificacion();
       }
     } catch (err) {
-      // El error ya es manejado por el hook
+      let errorMsg = "Error al escanear el código.";
+
+      if (err.response?.status === 400) {
+        errorMsg =
+          err.response.data?.error ||
+          err.response.data?.detail ||
+          "El código no pertenece a este envío o ya fue escaneado.";
+      } else if (err.response?.status === 404) {
+        errorMsg = `El código "${codigo}" no fue encontrado en este envío.`;
+      } else if (err.response?.status === 403) {
+        errorMsg = "No tiene permisos para realizar esta acción.";
+      } else if (!err.response) {
+        errorMsg = "Error de conexión. Verifique su red e intente nuevamente.";
+      } else {
+        errorMsg = err.response?.data?.error || err.response?.data?.detail || errorMsg;
+      }
+
+      mostrarMensaje(errorMsg, "error");
     } finally {
-      setCodigoEscaneado("");
+      setLoading(false);
+      setTimeout(() => inputRef.current?.focus(), 100);
     }
   };
 
@@ -109,15 +152,23 @@ const VerificacionEntregaModal = ({
       return;
     }
 
+    setLoading(true);
     try {
-      await forzarEntregaCompletada(envio.id);
+      await api_forzarCompletar(envio.id);
       mostrarMensaje("Entrega completada manualmente", "success");
+      await cargarDatosVerificacion();
       setTimeout(() => {
-        onEntregaCompletada();
+        onEntregaCompletada?.();
         onClose();
       }, 1500);
     } catch (err) {
-      // El error ya es manejado por el hook
+      const errorMsg =
+        err.response?.data?.error ||
+        err.response?.data?.detail ||
+        "Error al forzar la finalización de la entrega.";
+      mostrarMensaje(errorMsg, "error");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -149,6 +200,7 @@ const VerificacionEntregaModal = ({
       size="lg"
       preventClose={loading}
       closeConfirmationMessage="¿Está seguro que desea salir? Se perderá el progreso de escaneo.">
+
       {/* Barra de progreso */}
       {estado && (
         <div className="mb-6 p-4 bg-gray-50 rounded-lg border border-gray-200">
@@ -176,7 +228,7 @@ const VerificacionEntregaModal = ({
         </div>
       )}
 
-      {/* Mensajes */}
+      {/* Mensajes de estado */}
       {mensaje && (
         <div
           className={`mb-4 p-3 rounded-lg border ${
@@ -209,13 +261,13 @@ const VerificacionEntregaModal = ({
               <RiQrScanLine className="h-4 w-4 text-gray-400" />
             </div>
             <input
+              ref={inputRef}
               type="text"
               value={codigoEscaneado}
               onChange={(e) => setCodigoEscaneado(e.target.value)}
               onKeyPress={handleKeyPress}
               placeholder="Escanear código o ingresar manualmente..."
               className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-colors"
-              autoFocus
               disabled={loading}
             />
           </div>

@@ -413,20 +413,37 @@ class EscaneoMasivoSerializer(serializers.Serializer):
     
     def validate_codigos_barras(self, value):
         """Valida que los codigos de barras existan y estén disponibles"""
-        unidades_existentes = Unidad.objects.filter(codigo_barra__in=value).values_list('codigo_barra', flat=True)
+        unidades_existentes = Unidad.objects.filter(
+            codigo_barra__in=value
+        ).values_list('codigo_barra', flat=True)
         codigos_inexistentes = set(value) - set(unidades_existentes)
         
         if codigos_inexistentes:
-            raise serializers.ValidationError(f"Codigos no encontrados: {list(codigos_inexistentes)}")
+            codigos_str = ", ".join(f'"{c}"' for c in sorted(codigos_inexistentes))
+            raise serializers.ValidationError(
+                f"Los siguientes códigos no existen en el sistema: {codigos_str}. "
+                "Verifique que los códigos sean correctos."
+            )
         
-        # Validación de disponibilidad
+        # Validación de disponibilidad — traer estado para mensaje legible
+        ESTADO_LABELS = {
+            'reservada': 'reservada (ya asignada a otro envío)',
+            'despachada': 'despachada',
+            'entregada': 'entregada',
+            'perdida': 'reportada como perdida',
+            'devuelta': 'devuelta',
+        }
         unidades_no_disponibles = Unidad.objects.filter(
             codigo_barra__in=value
-        ).exclude(estado='disponible').values_list('codigo_barra', flat=True)
+        ).exclude(estado='disponible').values_list('codigo_barra', 'estado')
         
         if unidades_no_disponibles:
+            detalles = ", ".join(
+                f'"{codigo}" ({ESTADO_LABELS.get(estado, estado)})'
+                for codigo, estado in unidades_no_disponibles
+            )
             raise serializers.ValidationError(
-                f"Unidades no disponibles: {list(unidades_no_disponibles)}"
+                f"Las siguientes unidades no están disponibles: {detalles}."
             )
         
         return value
