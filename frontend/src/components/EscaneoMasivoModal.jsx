@@ -18,44 +18,66 @@ import {
 // Importar api para usar en la función de obtenerInfoCompletaUnidad
 import api from "../api/axios";
 
+// Mapa de estados de unidad a mensajes legibles para el usuario
+const ESTADO_LABELS = {
+  reservada: "reservada (ya fue asignada a otro envío)",
+  despachada: "despachada",
+  entregada: "entregada",
+  perdida: "reportada como perdida",
+  devuelta: "devuelta",
+};
+
 // Función para obtener información completa de la unidad (incluyendo cliente)
+// Lanza excepciones descriptivas si la unidad no existe o no está disponible
 const obtenerInfoCompletaUnidad = async (codigoBarra) => {
+  let response;
   try {
-    // Usaremos el endpoint que ya tienes para obtener info completa
-    const response = await api.get(
+    response = await api.get(
       `/api/cargas/unidades/por-codigo/?codigo_barra=${codigoBarra}`
     );
-    const unidad = response.data;
-
-    return {
-      codigo: codigoBarra,
-      producto_nombre: unidad.producto_nombre || "Producto",
-      precio_referencia: 0, // Puedes ajustar esto según tu modelo
-      cliente_id: unidad.cliente_id,
-      cliente_nombre: unidad.cliente_nombre || "Cliente",
-      remesa: unidad.carga_id || "N/A",
-      temporal_id: Date.now() + Math.random(),
-    };
   } catch (error) {
-    console.error("Error al obtener info completa de la unidad:", error);
-    // Fallback si hay error
-    return {
-      codigo: codigoBarra,
-      producto_nombre: "Producto",
-      precio_referencia: 0,
-      cliente_id: null,
-      cliente_nombre: "Cliente",
-      remesa: "N/A",
-      temporal_id: Date.now() + Math.random(),
-    };
+    if (error.response?.status === 404) {
+      throw new Error(
+        `El código "${codigoBarra}" no existe en el sistema. Verifique que el código sea correcto.`
+      );
+    }
+    throw new Error(
+      "Error de conexión al verificar el código. Intente nuevamente."
+    );
   }
+
+  const unidad = response.data;
+
+  // Validar que la unidad esté disponible
+  if (unidad.estado !== "disponible") {
+    const estadoLabel =
+      ESTADO_LABELS[unidad.estado] || unidad.estado;
+    throw new Error(
+      `La unidad "${codigoBarra}" no está disponible. Estado actual: ${estadoLabel}.`
+    );
+  }
+
+  // Validar que tenga cliente asignado
+  if (!unidad.cliente_id) {
+    throw new Error(
+      `La unidad "${codigoBarra}" no tiene un cliente asignado en el sistema.`
+    );
+  }
+
+  return {
+    codigo: codigoBarra,
+    producto_nombre: unidad.producto_nombre || "Producto",
+    precio_referencia: 0,
+    cliente_id: unidad.cliente_id,
+    cliente_nombre: unidad.cliente_nombre || "Cliente",
+    remesa: unidad.carga_id || "N/A",
+    temporal_id: Date.now() + Math.random(),
+  };
 };
 
 // Función helper para agrupar items por cliente, producto y remisión
 const agruparItemsMasivo = (items) => {
   const grupos = {};
-
-  console.log("DEBUG - Items a agrupar (masivo):", items);
 
   items.forEach((item) => {
     const clienteNombre = item.cliente_nombre || "Cliente";
@@ -64,13 +86,6 @@ const agruparItemsMasivo = (items) => {
 
     // Crear una clave única basada en cliente + producto + remesa
     const clave = `${clienteNombre}-${productoNombre}-${remesa}`;
-
-    console.log("DEBUG - Procesando item (masivo):", {
-      clienteNombre,
-      productoNombre,
-      remesa,
-      clave,
-    });
 
     if (!grupos[clave]) {
       grupos[clave] = {
@@ -81,20 +96,11 @@ const agruparItemsMasivo = (items) => {
         cantidad: 0,
         items: [],
       };
-      console.log("DEBUG - Nuevo grupo creado (masivo):", clave);
     }
     grupos[clave].cantidad += 1;
     grupos[clave].items.push(item);
-
-    console.log(
-      "DEBUG - Item agregado al grupo (masivo):",
-      clave,
-      "Cantidad:",
-      grupos[clave].cantidad
-    );
   });
 
-  console.log("DEBUG - Grupos finales (masivo):", Object.values(grupos));
   return Object.values(grupos);
 };
 
@@ -206,12 +212,10 @@ export default function EscaneoMasivoModal({
     setDuplicateError("");
 
     try {
-      // Obtener información COMPLETA de la unidad (incluyendo cliente)
+      // Obtener información COMPLETA de la unidad — lanza error si no existe o no está disponible
       const infoCompleta = await obtenerInfoCompletaUnidad(inputCodigo.trim());
 
-      console.log("DEBUG - Información completa obtenida:", infoCompleta);
-
-      // Agregar el código con toda la información
+      // Agregar el código con toda la información validada
       setCodigosData((prev) => [...prev, infoCompleta]);
 
       setLastAdded(inputCodigo.trim());
@@ -231,28 +235,12 @@ export default function EscaneoMasivoModal({
         }
       }, 50);
     } catch (err) {
-      console.error("Error al obtener info completa de la unidad:", err);
-      // Si hay error, agregar con placeholder
-      setCodigosData((prev) => [
-        ...prev,
-        {
-          codigo: inputCodigo.trim(),
-          producto_nombre: "Producto",
-          precio_referencia: 0,
-          cliente_id: null,
-          cliente_nombre: "Cliente",
-          remesa: "N/A",
-          temporal_id: Date.now() + Math.random(),
-        },
-      ]);
+      // Mostrar el motivo del error al usuario — NO agregar el item
+      setErrorValidacion(err.message || "Error al verificar el código. Intente nuevamente.");
+      console.error("Error al validar unidad en escaneo masivo:", err.message);
 
-      setLastAdded(inputCodigo.trim());
+      // Limpiar input y re-enfocar para continuar escaneando
       setInputCodigo("");
-      setHasChanges(true);
-      setRecentlyAdded(true);
-      setTimeout(() => setRecentlyAdded(false), 300);
-
-      // Enfocar el input después de un pequeño delay
       if (focusTimeoutRef.current) {
         clearTimeout(focusTimeoutRef.current);
       }
@@ -333,12 +321,12 @@ export default function EscaneoMasivoModal({
     e.preventDefault();
 
     if (codigosData.length === 0) {
-      alert("Debe agregar al menos un código de barras");
+      setResultado({ message: "Debe agregar al menos un código de barras." });
       return;
     }
 
     if (!formData.conductor || !formData.placa_vehiculo || !formData.origen) {
-      alert("Complete todos los campos de información del envío");
+      setResultado({ message: "Complete todos los campos de información del envío (conductor, placa y origen)." });
       return;
     }
 
@@ -364,6 +352,15 @@ export default function EscaneoMasivoModal({
       }
     } catch (error) {
       console.error("Error en escaneo masivo:", error);
+      // Extraer mensaje del backend y mostrarlo visualmente
+      const errorMsg =
+        error.response?.data?.codigos_barras?.[0] ||
+        error.response?.data?.error ||
+        error.response?.data?.detail ||
+        (typeof error.response?.data === "string" ? error.response.data : null) ||
+        error.message ||
+        "Error al procesar el escaneo masivo. Intente nuevamente.";
+      setResultado({ message: errorMsg });
     }
   };
 

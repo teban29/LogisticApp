@@ -59,82 +59,84 @@ export const cambiarEstadoEnvio = async (envioId, estado) => {
 };
 
 
-// Versión CORREGIDA de validarUnidadParaEnvio
-export const validarUnidadParaEnvio = async (codigoBarra, clienteId) => {
-  try {
-    // Primero intentar con el endpoint específico
-    try {
-      const response = await api.get(
-        `/api/cargas/unidades/por-codigo/?codigo_barra=${codigoBarra}`
-      );
-      const unidad = response.data;
-
-
-      // Verificar que pertenece al cliente
-      const unidadClienteId = unidad.cliente_id;
-
-      if (unidadClienteId !== clienteId) {
-        const clienteNombre = unidad.cliente_nombre || `Cliente ID: ${unidadClienteId}`;
-        return {
-          valida: false,
-          error: `La unidad no pertenece a este cliente. Pertenece a: ${clienteNombre}`,
-        };
-      }
-
-      // Verificar disponibilidad
-      if (unidad.estado !== "disponible") {
-        return {
-          valida: false,
-          error: `Unidad no disponible. Estado: ${unidad.estado}`,
-        };
-      }
-
-      // EXTRAER INFORMACIÓN COMPLETA DE LA UNIDAD
-      let productoNombre = "Producto";
-      let precioReferencia = 0;
-      let remision = "N/A";
-
-      // Obtener nombre del producto
-      if (unidad.producto_nombre) {
-        productoNombre = unidad.producto_nombre;
-      }
-
-      // OBTENER LA REMISIÓN - CLAVE PARA LA AGRUPACIÓN
-      if (unidad.remision) {
-        remision = unidad.remision; // ← Remisión directa del serializer
-      }
-
-
-      return {
-        valida: true,
-        unidad: {
-          ...unidad, // ← Mantener todos los datos originales
-          // Agregar estructura adicional para fácil acceso
-          producto_nombre: productoNombre,
-          remision: remision,
-          carga_item: {
-            producto: {
-              nombre: productoNombre,
-              precio_referencia: precioReferencia,
-            },
-            carga: {
-              remision: remision // ← Remisión en estructura anidada también
-            }
-          }
-        },
-      };
-    } catch (specificError) {
-      console.log(
-        "Endpoint específico falló, usando general...",
-        specificError
-      );
-      return await validarConEndpointGeneral(codigoBarra, clienteId);
-    }
-  } catch (err) {
-    console.error("Error en validación de unidad:", err.message);
-    return { valida: false, error: "Error al validar la unidad" };
-  }
+// Mapa de estados de unidad a mensajes legibles
+const ESTADO_MESSAGES = {
+  reservada: "reservada (ya fue asignada a otro envío)",
+  despachada: "despachada",
+  entregada: "entregada",
+  perdida: "reportada como perdida",
+  devuelta: "devuelta",
 };
+
+// Versión mejorada de validarUnidadParaEnvio con mensajes claramente legibles
+export const validarUnidadParaEnvio = async (codigoBarra, clienteId) => {
+  let response;
+  try {
+    response = await api.get(
+      `/api/cargas/unidades/por-codigo/?codigo_barra=${codigoBarra}`
+    );
+  } catch (specificError) {
+    if (specificError.response?.status === 404) {
+      return {
+        valida: false,
+        error: `El código "${codigoBarra}" no existe en el sistema. Verifique que el código sea correcto.`,
+      };
+    }
+    // Si el endpoint específico falla por otra razón, intentar con endpoint general
+    console.log("Endpoint específico falló, usando general...", specificError);
+    try {
+      return await validarConEndpointGeneral(codigoBarra, clienteId);
+    } catch (err) {
+      console.error("Error en validación de unidad:", err.message);
+      return { valida: false, error: "Error de conexión al verificar el código. Intente nuevamente." };
+    }
+  }
+
+  const unidad = response.data;
+
+  // Verificar que pertenece al cliente
+  const unidadClienteId = unidad.cliente_id;
+  if (unidadClienteId !== clienteId) {
+    const clienteNombre =
+      unidad.cliente_nombre || `Cliente ID: ${unidadClienteId}`;
+    return {
+      valida: false,
+      error: `La unidad "${codigoBarra}" pertenece a otro cliente: ${clienteNombre}. No puede agregarla a este envío.`,
+    };
+  }
+
+  // Verificar disponibilidad
+  if (unidad.estado !== "disponible") {
+    const estadoLabel = ESTADO_MESSAGES[unidad.estado] || unidad.estado;
+    return {
+      valida: false,
+      error: `La unidad "${codigoBarra}" no está disponible. Estado actual: ${estadoLabel}.`,
+    };
+  }
+
+  // Extraer información completa de la unidad
+  const productoNombre = unidad.producto_nombre || "Producto";
+  const remision = unidad.remision || "N/A";
+
+  return {
+    valida: true,
+    unidad: {
+      ...unidad,
+      producto_nombre: productoNombre,
+      remision: remision,
+      carga_item: {
+        producto: {
+          nombre: productoNombre,
+          precio_referencia: 0,
+        },
+        carga: {
+          remision: remision,
+        },
+      },
+    },
+  };
+};
+
 
 export const obtenerInfoProductoPorCodigo = async (codigoBarra) => {
   try {

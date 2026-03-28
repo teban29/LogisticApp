@@ -456,7 +456,14 @@ export default function EnvioFormModal({ open, onClose, onSubmit, editing }) {
         }
       }, 50);
     } catch (err) {
-      setErrorScan("Error al validar la unidad. Intente nuevamente.");
+      const errorMsg =
+        err.response?.status === 404
+          ? `El código "${codigoBarras}" no existe en el sistema.`
+          : err.response?.data?.error ||
+            err.response?.data?.detail ||
+            "Error al verificar el código. Intente nuevamente.";
+      setErrorScan(errorMsg);
+      setCodigoBarras("");
       console.error("Error en validación:", err.message);
     } finally {
       setLoadingValidation(false);
