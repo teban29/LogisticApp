@@ -9,6 +9,7 @@ import ClientFormModal from "../components/ClientFormModal";
 import ConfirmDialog from "../components/ConfirmDialog";
 import { useAuth } from "../context/AuthContext";
 import ClientProvidersModal from "../components/ClientProvidersModal";
+import toast from "react-hot-toast";
 import {
   RiAddLine,
   RiSearchLine,
@@ -104,8 +105,13 @@ export default function Clients() {
   };
 
   const submitForm = async (payload) => {
-    if (editing) await updateClient(editing.id, payload);
-    else await createClient(payload);
+    if (editing) {
+      await updateClient(editing.id, payload);
+      toast.success("Cliente actualizado");
+    } else {
+      await createClient(payload);
+      toast.success("Cliente creado exitosamente");
+    }
     await resetAndReload();
   };
 
@@ -116,6 +122,7 @@ export default function Clients() {
   const confirmDelete = async () => {
     if (!deleting) return;
     await deleteClient(deleting.id);
+    toast.success("Cliente eliminado");
     setOpenDelete(false);
     setDeleting(null);
     await resetAndReload();

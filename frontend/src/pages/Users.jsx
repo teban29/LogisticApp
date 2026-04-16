@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { listUsers, createUser, updateUser, deleteUser } from "../api/users";
 import UserFormModal from "../components/UserFormModal";
 import ConfirmDialog from "../components/ConfirmDialog";
+import toast from "react-hot-toast";
 import {
   RiAddLine,
   RiSearchLine,
@@ -95,8 +96,10 @@ export default function Users() {
   const submitForm = async (payload) => {
     if (editingUser) {
       await updateUser(editingUser.id, payload);
+      toast.success("Usuario actualizado");
     } else {
       await createUser(payload);
+      toast.success("Usuario creado exitosamente");
     }
     await resetAndReload();
   };
@@ -109,6 +112,7 @@ export default function Users() {
   const confirmDelete = async () => {
     if (!deletingUser) return;
     await deleteUser(deletingUser.id);
+      toast.success("Usuario eliminado");
     setOpenDelete(false);
     setDeletingUser(null);
     await resetAndReload();

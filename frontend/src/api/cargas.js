@@ -58,6 +58,8 @@ export async function createCarga(payload) {
 
 export async function updateCarga(id, payload) {
   const form = new FormData();
+  if (payload.cliente) form.append("cliente", payload.cliente);
+  if (payload.proveedor) form.append("proveedor", payload.proveedor);
   if (payload.remision) form.append("remision", payload.remision);
   if (payload.observaciones)
     form.append("observaciones", payload.observaciones);

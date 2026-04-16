@@ -7,6 +7,7 @@ import EnvioDetailModal from "../components/EnvioDetailModal";
 import EscaneoMasivoModal from "../components/EscaneoMasivoModal";
 import VerificacionEntregaModal from "../components/VerificacionEntregaModal"; // Importar el nuevo modal
 import { useNavigate } from "react-router-dom";
+import toast from "react-hot-toast";
 import {
   RiAddLine,
   RiSearchLine,
@@ -116,7 +117,7 @@ export default function Envios() {
   const handleVerificarEntrega = (envio) => {
     // Validar que el envío esté en estado apropiado
     if (!["pendiente", "en_transito"].includes(envio.estado)) {
-      alert("Solo se pueden verificar envíos pendientes o en tránsito");
+      toast.error("Solo se pueden verificar envíos pendientes o en tránsito");
       return;
     }
 

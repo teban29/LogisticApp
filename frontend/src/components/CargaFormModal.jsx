@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import Modal from "./Modal";
 import { listProviders, listClients } from "../api/partners";
+import { useAuth } from "../context/AuthContext";
 import {
   RiUserLine,
   RiTruckLine,
@@ -24,6 +25,7 @@ export default function CargaFormModal({
   onSubmit,
   editing = null,
 }) {
+  const { user } = useAuth();
   const [form, setForm] = useState({
     cliente: "",
     proveedor: "",
@@ -515,7 +517,7 @@ export default function CargaFormModal({
                   fieldErrors.cliente ? 'border-red-500 bg-red-50' : 'border-gray-300'
                 }`}
                 required
-                disabled={loadingOptions}>
+                disabled={loadingOptions || (editing && user?.rol !== 'admin')}>
                 <option value="">Selecciona un cliente</option>
                 {clientesOptions.map((c) => (
                   <option key={c.value} value={c.value}>
@@ -555,7 +557,7 @@ export default function CargaFormModal({
                     ? "Buscar proveedor..."
                     : "Primero selecciona un cliente"
                 }
-                disabled={!form.cliente || loadingOptions}
+                disabled={(!form.cliente || loadingOptions) || (editing && user?.rol !== 'admin')}
                 required
               />
 
