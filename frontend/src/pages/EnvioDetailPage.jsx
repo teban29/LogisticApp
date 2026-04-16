@@ -5,6 +5,7 @@ import { useAuth } from "../context/AuthContext";
 import EnvioFormModal from "../components/EnvioFormModal";
 import VerificacionEntregaModal from "../components/VerificacionEntregaModal";
 import api from "../api/axios";
+import toast from "react-hot-toast";
 import {
   RiTruckLine,
   RiUserLine,
@@ -136,7 +137,7 @@ export default function EnvioDetailPage() {
 
   const handleVerificarEntrega = () => {
     if (!["pendiente", "en_transito"].includes(envio.estado)) {
-      alert("Solo se pueden verificar envíos pendientes o en tránsito");
+      toast.error("Solo se pueden verificar envíos pendientes o en tránsito");
       return;
     }
 
@@ -164,16 +165,10 @@ export default function EnvioDetailPage() {
 
       const blob = new Blob([response.data], { type: "application/pdf" });
       const urlObject = window.URL.createObjectURL(blob);
-      const link = document.createElement("a");
+      window.open(urlObject, "_blank");
 
-      link.href = urlObject;
-      link.download = `acta_entrega_${envio.numero_guia}.pdf`;
-      document.body.appendChild(link);
-      link.click();
-
-      // Limpieza
-      window.URL.revokeObjectURL(urlObject);
-      document.body.removeChild(link);
+      // Limpieza retrasada para permitir que la pestaña cargue
+      setTimeout(() => window.URL.revokeObjectURL(urlObject), 10000);
 
       setLoadingEnvio(false);
     } catch (err) {
@@ -183,7 +178,7 @@ export default function EnvioDetailPage() {
       console.error("Headers:", err.response?.headers);
 
       setLoadingEnvio(false);
-      alert(
+      toast.error(
         "Error al generar el Manifiesto. Verifica la consola para más detalles."
       );
     }
@@ -209,16 +204,10 @@ export default function EnvioDetailPage() {
 
       const blob = new Blob([response.data], { type: "application/pdf" });
       const urlObject = window.URL.createObjectURL(blob);
-      const link = document.createElement("a");
+      window.open(urlObject, "_blank");
 
-      link.href = urlObject;
-      link.download = `cuenta_cobro_${envio.numero_guia}.pdf`;
-      document.body.appendChild(link);
-      link.click();
-
-      // Limpieza
-      window.URL.revokeObjectURL(urlObject);
-      document.body.removeChild(link);
+      // Limpieza retrasada para permitir que la pestaña cargue
+      setTimeout(() => window.URL.revokeObjectURL(urlObject), 10000);
 
       setLoadingEnvio(false);
     } catch (err) {
@@ -228,7 +217,7 @@ export default function EnvioDetailPage() {
       console.error("Headers:", err.response?.headers);
 
       setLoadingEnvio(false);
-      alert(
+      toast.error(
         "Error al generar la cuenta de cobro. Verifica la consola para más detalles."
       );
     }

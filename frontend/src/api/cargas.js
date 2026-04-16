@@ -58,6 +58,8 @@ export async function createCarga(payload) {
 
 export async function updateCarga(id, payload) {
   const form = new FormData();
+  if (payload.cliente) form.append("cliente", payload.cliente);
+  if (payload.proveedor) form.append("proveedor", payload.proveedor);
   if (payload.remision) form.append("remision", payload.remision);
   if (payload.observaciones)
     form.append("observaciones", payload.observaciones);
@@ -147,13 +149,8 @@ export async function descargarEtiquetasDeCarga(cargaId) {
 
 export function descargarBlobComoPDF(blob, filename) {
   const url = window.URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = filename.endsWith(".pdf") ? filename : `${filename}.pdf`;
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  window.URL.revokeObjectURL(url);
+  window.open(url, "_blank");
+  setTimeout(() => window.URL.revokeObjectURL(url), 10000);
 }
 
 export function manejarErrorPermisos(error) {

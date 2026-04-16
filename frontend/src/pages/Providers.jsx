@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { listProviders, createProvider, updateProvider, deleteProvider } from '../api/partners';
 import ProviderFormModal from '../components/ProviderFormModal';
+import toast from "react-hot-toast";
 import ConfirmDialog from '../components/ConfirmDialog';
 import { useAuth } from '../context/AuthContext';
 import {
@@ -86,8 +87,13 @@ export default function Providers() {
   };
 
   const submitForm = async (payload) => {
-    if (editing) await updateProvider(editing.id, payload);
-    else await createProvider(payload);
+    if (editing) {
+      await updateProvider(editing.id, payload);
+      toast.success("Proveedor actualizado");
+    } else {
+      await createProvider(payload);
+      toast.success("Proveedor creado exitosamente");
+    }
     await resetAndReload();
   };
 
@@ -99,6 +105,7 @@ export default function Providers() {
   const confirmDelete = async () => {
     if (!deleting) return;
     await deleteProvider(deleting.id);
+    toast.success("Proveedor eliminado");
     setOpenDelete(false); 
     setDeleting(null);
     await resetAndReload();
@@ -334,6 +341,7 @@ export default function Providers() {
                           <button
                             onClick={async () => {
                               await updateProvider(p.id, { is_active: !p.is_active });
+      toast.success("Proveedor actualizado");
                               await fetchData();
                             }}
                             className="p-2 text-gray-500 hover:text-orange-600 hover:bg-orange-50 rounded-lg transition-colors"

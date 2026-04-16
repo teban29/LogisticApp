@@ -45,6 +45,7 @@ import {
   RiFileDownloadLine,
 } from "react-icons/ri";
 import { useNavigate } from "react-router-dom";
+import toast from "react-hot-toast";
 
 // Opciones predefinidas para filtros de fecha
 const FILTROS_FECHA = {
@@ -139,17 +140,17 @@ export default function Cargas() {
     try {
       // Verificar permisos para clientes
       if (user.rol === "cliente" && user.cliente !== cargaClienteId) {
-        alert("No tiene permisos para descargar el consolidado de esta carga");
+        toast.error("No tiene permisos para descargar el consolidado de esta carga");
         return;
       }
 
       // Mostrar indicador de carga
-      const loadingAlert = alert("Generando consolidado PDF...");
+      const loadingAlert = toast.loading("Generando consolidado PDF...");
 
       const blob = await descargarConsolidadoPDF(cargaId);
 
       // Cerrar alerta de carga
-      if (loadingAlert) loadingAlert.close();
+      if (loadingAlert) toast.dismiss(loadingAlert);
 
       // Crear nombre de archivo seguro
       const fecha = new Date().toISOString().split("T")[0];
@@ -157,9 +158,9 @@ export default function Cargas() {
     } catch (e) {
       console.error(e);
       if (e.response?.status === 403) {
-        alert("No tiene permisos para descargar el consolidado de esta carga");
+        toast.error("No tiene permisos para descargar el consolidado de esta carga");
       } else {
-        alert(
+        toast.error(
           "No se pudo generar el consolidado PDF: " +
             (e.message || "Error desconocido")
         );
@@ -170,8 +171,11 @@ export default function Cargas() {
   const handleCreateSubmit = async (payload, editingId = null) => {
     if (editingId) {
       await updateCarga(editingId, payload);
+      toast.success("Carga actualizada exitosamente");
+      toast("Los códigos han sido regenerados. Recuerde imprimir nuevamente las etiquetas.", { icon: "⚠️", duration: 6000 });
     } else {
       await createCarga(payload);
+      toast.success("Carga creada exitosamente");
     }
     setOpenForm(false);
     await fetchData();
@@ -180,10 +184,11 @@ export default function Cargas() {
   const handleGenerate = async (cargaId) => {
     try {
       await generarUnidades(cargaId);
+      toast.success("Unidades generadas exitosamente");
       await fetchData();
     } catch (err) {
       console.error(err);
-      alert("Error generando unidades. Por favor, intente nuevamente.");
+      toast.error("Error generando unidades. Por favor, intente nuevamente.");
     }
   };
 
@@ -195,7 +200,7 @@ export default function Cargas() {
       setOpenDetail(true);
     } catch (err) {
       console.error(err);
-      alert("No se pudo obtener el detalle de la carga.");
+      toast.error("No se pudo obtener el detalle de la carga.");
     } finally {
       setLoadingDetail(false);
     }
@@ -204,7 +209,7 @@ export default function Cargas() {
   const imprimirEtiquetasItem = async (cargaId, itemId, cargaClienteId) => {
     try {
       if (user.rol === "cliente" && user.cliente !== cargaClienteId) {
-        alert("No tiene permisos para imprimir etiquetas de esta carga");
+        toast.error("No tiene permisos para imprimir etiquetas de esta carga");
         return;
       }
 
@@ -216,9 +221,9 @@ export default function Cargas() {
     } catch (e) {
       console.error(e);
       if (e.response?.status === 403) {
-        alert("No tiene permisos para imprimir etiquetas de esta carga");
+        toast.error("No tiene permisos para imprimir etiquetas de esta carga");
       } else {
-        alert("No se pudieron generar las etiquetas");
+        toast.error("No se pudieron generar las etiquetas");
       }
     }
   };
@@ -227,7 +232,7 @@ export default function Cargas() {
     try {
       // Verificar permisos para clientes
       if (user.rol === "cliente" && user.cliente !== cargaClienteId) {
-        alert("No tiene permisos para imprimir etiquetas de esta carga");
+        toast.error("No tiene permisos para imprimir etiquetas de esta carga");
         return;
       }
 
@@ -236,9 +241,9 @@ export default function Cargas() {
     } catch (e) {
       console.error(e);
       if (e.response?.status === 403) {
-        alert("No tiene permisos para imprimir etiquetas de esta carga");
+        toast.error("No tiene permisos para imprimir etiquetas de esta carga");
       } else {
-        alert("No se pudieron generar las etiquetas de la carga.");
+        toast.error("No se pudieron generar las etiquetas de la carga.");
       }
     }
   };
