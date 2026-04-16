@@ -149,13 +149,8 @@ export async function descargarEtiquetasDeCarga(cargaId) {
 
 export function descargarBlobComoPDF(blob, filename) {
   const url = window.URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = filename.endsWith(".pdf") ? filename : `${filename}.pdf`;
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  window.URL.revokeObjectURL(url);
+  window.open(url, "_blank");
+  setTimeout(() => window.URL.revokeObjectURL(url), 10000);
 }
 
 export function manejarErrorPermisos(error) {

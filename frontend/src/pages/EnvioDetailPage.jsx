@@ -165,16 +165,10 @@ export default function EnvioDetailPage() {
 
       const blob = new Blob([response.data], { type: "application/pdf" });
       const urlObject = window.URL.createObjectURL(blob);
-      const link = document.createElement("a");
+      window.open(urlObject, "_blank");
 
-      link.href = urlObject;
-      link.download = `acta_entrega_${envio.numero_guia}.pdf`;
-      document.body.appendChild(link);
-      link.click();
-
-      // Limpieza
-      window.URL.revokeObjectURL(urlObject);
-      document.body.removeChild(link);
+      // Limpieza retrasada para permitir que la pestaña cargue
+      setTimeout(() => window.URL.revokeObjectURL(urlObject), 10000);
 
       setLoadingEnvio(false);
     } catch (err) {
@@ -210,16 +204,10 @@ export default function EnvioDetailPage() {
 
       const blob = new Blob([response.data], { type: "application/pdf" });
       const urlObject = window.URL.createObjectURL(blob);
-      const link = document.createElement("a");
+      window.open(urlObject, "_blank");
 
-      link.href = urlObject;
-      link.download = `cuenta_cobro_${envio.numero_guia}.pdf`;
-      document.body.appendChild(link);
-      link.click();
-
-      // Limpieza
-      window.URL.revokeObjectURL(urlObject);
-      document.body.removeChild(link);
+      // Limpieza retrasada para permitir que la pestaña cargue
+      setTimeout(() => window.URL.revokeObjectURL(urlObject), 10000);
 
       setLoadingEnvio(false);
     } catch (err) {
